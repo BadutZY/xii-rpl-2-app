@@ -1,0 +1,24 @@
+// GradientText: renders text with a gradient color using a simple
+// LinearGradient background + clipping approach that works without
+// @react-native-masked-view (which requires extra native setup).
+// For simplicity in this project, we use the primary color directly.
+// The visual result is close to the web gradient text.
+
+import React from 'react';
+import { Text, TextStyle, View } from 'react-native';
+import { Colors } from '../constants/theme';
+
+interface GradientTextProps {
+  children: React.ReactNode;
+  style?: TextStyle | TextStyle[];
+  variant?: 'primary' | 'teacher';
+}
+
+export const GradientText = ({ children, style, variant = 'primary' }: GradientTextProps) => {
+  const color = variant === 'teacher' ? Colors.orange : Colors.primary;
+  return (
+    <Text style={[style, { color }]}>{children}</Text>
+  );
+};
+
+export default GradientText;

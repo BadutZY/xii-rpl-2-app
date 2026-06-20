@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "XI RPL 2",
+    "slug": "xi-rpl-2-app",
+    "version": "1.5.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#171a2e"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.xirpl2.mobile",
+      "requiresFullScreen": false,
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#171a2e"
+      },
+      "package": "com.xirpl2.mobile",
+      "runtimeVersion": "1.0.0"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#171a2e",
+          "image": "./assets/splash.png",
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
+      "expo-status-bar"
+    ],
+    "scheme": "xirpl2",
+    "backgroundColor": "#171a2e",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "007c88fc-edb1-43cb-b554-a7179cbf47c7"
+      }
+    },
+    "owner": "badutzy",
+    "updates": {
+      "url": "https://u.expo.dev/007c88fc-edb1-43cb-b554-a7179cbf47c7"
+    }
+  }
+}
