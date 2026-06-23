@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography } from '../../src/constants/theme';
 import {
   CodeIcon,
@@ -31,6 +32,11 @@ function TabBarIcon({ focused, icon, focusedIcon, label }: TabIconProps) {
 }
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+
+  // Tinggi tab bar dasar + tambahan safe area bottom (gesture bar Android/iOS)
+  const tabBarHeight = 56 + insets.bottom;
+
   return (
     <Tabs
       screenOptions={{
@@ -46,7 +52,13 @@ export default function TabsLayout() {
           fontFamily: Typography.heading,
           fontSize: 18,
         },
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: tabBarHeight,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+          },
+        ],
         tabBarShowLabel: false,
         headerLeft: () => null,
       }}
@@ -131,20 +143,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderTopColor: Colors.border,
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 84 : 64,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-    paddingTop: 8,
+    paddingTop: 6,
     elevation: 0,
     shadowOpacity: 0,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 2,
   },
   tabIconWrap: {
     width: 36,
-    height: 28,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
@@ -154,7 +164,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: Typography.body,
-    fontSize: 10,
+    fontSize: 9,
     color: Colors.mutedForeground,
   },
   tabLabelActive: {

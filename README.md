@@ -20,36 +20,18 @@ React Native app (Expo) untuk kelas XI RPL 2 SMK INFOKOM.
 ### Install dependencies
 
 ```bash
-pnpm install
+npm install
 ```
 
 ### Jalankan development server
 
 ```bash
-pnpm start
+npx expo start
 ```
 
 Lalu scan QR code dengan:
 - **Android**: Expo Go app
 - **iOS**: Kamera bawaan atau Expo Go app
-
-### Jalankan di Android emulator
-
-```bash
-pnpm android
-```
-
-### Jalankan di iOS simulator (macOS only)
-
-```bash
-pnpm ios
-```
-
-### Jalankan di browser (web preview)
-
-```bash
-pnpm web
-```
 
 ## Struktur Project
 

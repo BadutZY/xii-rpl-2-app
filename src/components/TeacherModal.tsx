@@ -41,11 +41,11 @@ function getSocialUrl(platform: string, handle: string): string {
   const c = handle.replace('@', '');
   switch (platform) {
     case 'instagram': return `https://www.instagram.com/${c}/`;
-    case 'github': return `https://github.com/${c}`;
-    case 'twitter': return `https://x.com/${c}`;
-    case 'youtube': return `https://www.youtube.com/@${c}`;
-    case 'website': return `https://${c}`;
-    default: return handle;
+    case 'github':    return `https://github.com/${c}`;
+    case 'twitter':   return `https://x.com/${c}`;
+    case 'youtube':   return `https://www.youtube.com/@${c}`;
+    case 'website':   return `https://${c}`;
+    default:          return handle;
   }
 }
 
@@ -53,36 +53,36 @@ function getSocialIcon(platform: string, color: string) {
   const size = 18;
   switch (platform) {
     case 'instagram': return <InstagramIcon size={size} color={color} />;
-    case 'github': return <GithubIcon size={size} color={color} />;
-    case 'twitter': return <TwitterIcon size={size} color={color} />;
-    case 'youtube': return <YoutubeIcon size={size} color={color} />;
-    case 'website': return <GlobeIcon size={size} color={color} />;
-    default: return null;
+    case 'github':    return <GithubIcon size={size} color={color} />;
+    case 'twitter':   return <TwitterIcon size={size} color={color} />;
+    case 'youtube':   return <YoutubeIcon size={size} color={color} />;
+    case 'website':   return <GlobeIcon size={size} color={color} />;
+    default:          return null;
   }
 }
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 export const TeacherModal = ({ teacher, onClose }: Props) => {
-  const scale = useSharedValue(0.92);
+  const scale   = useSharedValue(0.92);
   const opacity = useSharedValue(0);
 
   React.useEffect(() => {
     if (teacher) {
-      scale.value = withSpring(1, { damping: 25, stiffness: 300 });
+      scale.value   = withSpring(1, { damping: 25, stiffness: 300 });
       opacity.value = withTiming(1, { duration: 180 });
     }
   }, [teacher]);
 
   const handleClose = () => {
-    scale.value = withSpring(0.92, { damping: 25, stiffness: 300 });
+    scale.value   = withSpring(0.92, { damping: 25, stiffness: 300 });
     opacity.value = withTiming(0, { duration: 150 }, (finished) => {
       if (finished) runOnJS(onClose)();
     });
   };
 
   const overlayStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const boxStyle = useAnimatedStyle(() => ({
+  const boxStyle     = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     opacity: opacity.value,
   }));
@@ -93,16 +93,36 @@ export const TeacherModal = ({ teacher, onClose }: Props) => {
     teacher.socials != null &&
     Object.values(teacher.socials).some((h) => h && h !== '-');
 
+  // Baris info — label "Mata Pelajaran" adalah yang terpanjang
+  const infoRows: [string, string][] = [
+    ['Umur',          teacher.age && teacher.age > 0 ? `${teacher.age} tahun` : '-'],
+    ['Tanggal Lahir', teacher.birthdate ?? '-'],
+    ['Mata Pelajaran', teacher.subject ?? '-'],
+  ];
+
   return (
-    <Modal transparent visible={!!teacher} onRequestClose={handleClose} animationType="none">
+    <Modal
+      transparent
+      visible={!!teacher}
+      onRequestClose={handleClose}
+      animationType="none"
+    >
       <AnimatedView style={[styles.overlay, overlayStyle]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+
         <AnimatedView style={[styles.box, boxStyle]}>
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
             <XIcon size={22} color={Colors.mutedForeground} />
           </TouchableOpacity>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scroll}
+          >
             {/* Photo */}
             <View style={styles.photoWrap}>
               {teacher.photo ? (
@@ -117,12 +137,9 @@ export const TeacherModal = ({ teacher, onClose }: Props) => {
             <Text style={styles.nameText}>{teacher.fullName}</Text>
             <Text style={styles.roleText}>{teacher.role}</Text>
 
+            {/* Info table — alignSelf:'center' agar kolom benar-benar di tengah */}
             <View style={styles.infoTable}>
-              {[
-                ['Umur', teacher.age && teacher.age > 0 ? `${teacher.age} tahun` : '-'],
-                ['Tanggal Lahir', teacher.birthdate],
-                ['Mata Pelajaran', teacher.subject],
-              ].map(([label, value]) => (
+              {infoRows.map(([label, value]) => (
                 <View key={label} style={styles.infoRow}>
                   <Text style={styles.infoLabel}>{label}</Text>
                   <Text style={styles.infoColon}>:</Text>
@@ -131,6 +148,7 @@ export const TeacherModal = ({ teacher, onClose }: Props) => {
               ))}
             </View>
 
+            {/* Socials */}
             {hasSocials && (
               <View style={styles.socialsSection}>
                 <Text style={styles.socialsLabel}>SOSIAL MEDIA</Text>
@@ -184,7 +202,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: Spacing.lg,
-    alignItems: 'center',
+    alignItems: 'center',   // scroll content di-center horizontal
   },
   photoWrap: {
     width: 100,
@@ -196,10 +214,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245,158,11,0.4)',
     backgroundColor: Colors.muted,
   },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
+  photo: { width: '100%', height: '100%' },
   photoPlaceholder: {
     flex: 1,
     alignItems: 'center',
@@ -220,9 +235,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     textAlign: 'center',
   },
+
+  // ── Info table ──────────────────────────────────────────────────────────────
+  // alignSelf:'center' → tabel hanya selebar kontennya, otomatis di-center
+  // di dalam scroll view yang sudah alignItems:'center'
   infoTable: {
-    width: '100%',
     marginBottom: Spacing.md,
+    alignSelf: 'center',
   },
   infoRow: {
     flexDirection: 'row',
@@ -234,6 +253,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.mutedForeground,
     width: 110,
+    textAlign: 'left',
   },
   infoColon: {
     fontFamily: Typography.body,
@@ -245,8 +265,10 @@ const styles = StyleSheet.create({
     fontFamily: Typography.body,
     fontSize: 13,
     color: Colors.foreground,
-    flex: 1,
+    minWidth: 80,
   },
+
+  // ── Socials ─────────────────────────────────────────────────────────────────
   socialsSection: {
     width: '100%',
     alignItems: 'center',

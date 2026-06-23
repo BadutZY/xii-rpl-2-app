@@ -94,6 +94,13 @@ export const StudentModal = ({ student, onClose }: Props) => {
 
   const hasSocials = Object.values(student.socials).some((h) => h && h !== '-');
 
+  const infoRows: [string, string | number][] = [
+    ['Nomor Absen', student.no],
+    ['Umur', student.age > 0 ? `${student.age} tahun` : '-'],
+    ['Tanggal Lahir', student.birthdate],
+    ['Kredit Poin', student.kreditPoin],
+  ];
+
   return (
     <Modal transparent visible={!!student} onRequestClose={handleClose} animationType="none">
       <AnimatedView style={[styles.overlay, overlayStyle]}>
@@ -118,14 +125,9 @@ export const StudentModal = ({ student, onClose }: Props) => {
             <Text style={styles.nameText}>{student.fullName}</Text>
             <Text style={styles.positionText}>{student.position}</Text>
 
-            {/* Info table */}
+            {/* Info table — centered dengan kolom label dan value seimbang */}
             <View style={styles.infoTable}>
-              {[
-                ['Nomor Absen', student.no],
-                ['Umur', student.age > 0 ? `${student.age} tahun` : '-'],
-                ['Tanggal Lahir', student.birthdate],
-                ['Kredit Poin', student.kreditPoin],
-              ].map(([label, value]) => (
+              {infoRows.map(([label, value]) => (
                 <View key={label} style={styles.infoRow}>
                   <Text style={styles.infoLabel}>{label}</Text>
                   <Text style={styles.infoColon}>:</Text>
@@ -224,9 +226,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     textAlign: 'center',
   },
+  // Info table: dibungkus dalam container yang di-center,
+  // lalu setiap baris pakai flex row dengan lebar tetap agar kolom rata
   infoTable: {
-    width: '100%',
     marginBottom: Spacing.md,
+    alignSelf: 'center',
   },
   infoRow: {
     flexDirection: 'row',
@@ -238,6 +242,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.mutedForeground,
     width: 110,
+    textAlign: 'left',
   },
   infoColon: {
     fontFamily: Typography.body,
@@ -249,7 +254,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.body,
     fontSize: 13,
     color: Colors.foreground,
-    flex: 1,
+    minWidth: 80,
   },
   socialsSection: {
     width: '100%',

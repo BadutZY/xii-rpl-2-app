@@ -18,8 +18,8 @@ export const galleryImages: GalleryImage[] = [
   { id: 12, src: require('../../assets/gallery/ngumpul3.jpeg'),   title: ' ' },
   { id: 13, src: require('../../assets/gallery/petugas.jpeg'),    title: ' ' },
   { id: 14, src: require('../../assets/gallery/drama1.jpeg'),    title: ' ' },
-  { id: 15, src: require('../../assets/gallery/drama2.jpeg'),    title: ' ' },
   { id: 16, src: require('../../assets/gallery/drama3.jpeg'),    title: ' ' },
+  { id: 15, src: require('../../assets/gallery/drama2.jpeg'),    title: ' ' },
 ];
 
 export const galleryPreview = galleryImages.slice(0, 6);
