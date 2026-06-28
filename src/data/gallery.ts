@@ -18,8 +18,13 @@ export const galleryImages: GalleryImage[] = [
   { id: 12, src: require('../../assets/gallery/ngumpul3.jpeg'),   title: ' ' },
   { id: 13, src: require('../../assets/gallery/petugas.jpeg'),    title: ' ' },
   { id: 14, src: require('../../assets/gallery/drama1.jpeg'),    title: ' ' },
-  { id: 16, src: require('../../assets/gallery/drama3.jpeg'),    title: ' ' },
-  { id: 15, src: require('../../assets/gallery/drama2.jpeg'),    title: ' ' },
+  { id: 15, src: require('../../assets/gallery/drama3.jpeg'),    title: ' ' },
+  { id: 16, src: require('../../assets/gallery/drama2.jpeg'),    title: ' ' },
+  { id: 17, src: require('../../assets/gallery/kera/kera2.jpeg'),    title: ' ' },
+  { id: 18, src: require('../../assets/gallery/kera/kera3.jpeg'),    title: ' ' },
+  { id: 19, src: require('../../assets/gallery/kera/kera4.jpeg'),    title: ' ' },
+  { id: 20, src: require('../../assets/gallery/kera/kera5.jpeg'),    title: ' ' },
+  { id: 21, src: require('../../assets/gallery/kera/kera6.jpeg'),    title: ' ' },
 ];
 
 export const galleryPreview = galleryImages.slice(0, 6);

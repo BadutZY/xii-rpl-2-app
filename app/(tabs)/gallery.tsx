@@ -1,15 +1,15 @@
 /**
- * gallery.tsx  —  app/(tabs)/gallery.tsx
+ * gallery.tsx — app/(tabs)/gallery.tsx
  *
- * Fix:
- *  1. Grid masonry 2 kolom — foto selalu cover, TIDAK ada blank space
- *  2. Lightbox zoom: pinch-to-zoom + double-tap + pan saat zoomed + tombol reset
- *  3. Tidak pakai clamp() dari reanimated (tidak tersedia di v4) → Math.min/Math.max
- *  4. Worklet directives tidak dibungkus useCallback
- *  5. isZoomed dikontrol useState biasa (bukan .value saat render)
+ * Fixes:
+ *  - Reanimated "transform overwritten by layout animation" warning fixed by
+ *    keeping entering animations on wrapper Views and transform styles on
+ *    separate inner Animated.Views (never both on the same component).
+ *  - Pinch-to-zoom removed entirely.
+ *  - All emojis replaced with SVG icons.
  */
 
-import React, { useState, useCallback, useRef, memo } from 'react';
+import React, { useState, useCallback, useRef, memo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,10 +28,11 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withRepeat,
+  withSequence,
   runOnJS,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { Colors, Typography, BorderRadius, Spacing } from '../../src/constants/theme';
 import { galleryImages, GalleryImage } from '../../src/data/gallery';
@@ -40,16 +41,14 @@ import {
   XIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  AwardIcon,
 } from '../../src/components/Icons';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const COL_GAP = 8;
 const ROW_GAP = 8;
 const CELL_W = Math.floor((SCREEN_W - Spacing.md * 2 - COL_GAP) / 2);
-const MAX_ZOOM = 4;
 
-// ─── Masonry column builder ───────────────────────────────────────────────────
-// Bagi gambar ke 2 kolom bergantian agar tinggi kolom seimbang
 function splitColumns(imgs: GalleryImage[]) {
   const left: GalleryImage[] = [];
   const right: GalleryImage[] = [];
@@ -62,7 +61,28 @@ function splitColumns(imgs: GalleryImage[]) {
 
 const { left: LEFT_COL, right: RIGHT_COL } = splitColumns(galleryImages);
 
-// ─── PhotoCard ────────────────────────────────────────────────────────────────
+// Shimmer placeholder
+function ShimmerBox({ width, height }: { width: number; height: number }) {
+  const opacity = useSharedValue(0.3);
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 800 }),
+        withTiming(0.3, { duration: 800 }),
+      ),
+      -1,
+      false,
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View
+      style={[{ width, height, backgroundColor: Colors.muted, borderRadius: BorderRadius.md }, style]}
+    />
+  );
+}
+
+// PhotoCard — FIX: entering on outer wrapper, transform on inner Animated.View
 interface CardProps {
   img: GalleryImage;
   globalIdx: number;
@@ -71,55 +91,58 @@ interface CardProps {
 }
 
 const PhotoCard = memo(({ img, globalIdx, colIdx, onPress }: CardProps) => {
-  // Tinggi default 4:3, akan diupdate setelah gambar load
   const [h, setH] = useState(Math.round(CELL_W * 0.75));
+  const [loaded, setLoaded] = useState(false);
   const didLoad = useRef(false);
+  const pressScale = useSharedValue(1);
+
+  const scaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
 
   const onLoad = (e: any) => {
     if (didLoad.current) return;
     didLoad.current = true;
     const { width, height } = e.nativeEvent.source;
     if (width > 0) setH(Math.round((height / width) * CELL_W));
+    setLoaded(true);
   };
 
   return (
+    // Outer: entering only — NO transform
     <Animated.View
-      entering={FadeInDown.delay(Math.min(colIdx * 60, 480)).duration(400)}
+      entering={FadeInDown.delay(Math.min(colIdx * 70, 560)).duration(450).springify()}
       style={{ marginBottom: ROW_GAP }}
     >
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => onPress(globalIdx)}
-        style={[styles.card, { height: h }]}
-      >
-        <Image
-          source={img.src}
-          style={styles.cardImg}
-          resizeMode="cover"   // COVER — tidak ada blank space
-          onLoad={onLoad}
-          fadeDuration={150}
-        />
-      </TouchableOpacity>
+      {/* Inner: transform only — NO entering */}
+      <Animated.View style={scaleStyle}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => onPress(globalIdx)}
+          onPressIn={() => { pressScale.value = withSpring(0.96, { damping: 20, stiffness: 300 }); }}
+          onPressOut={() => { pressScale.value = withSpring(1, { damping: 20, stiffness: 300 }); }}
+          style={[styles.card, { height: h }]}
+        >
+          {!loaded && <ShimmerBox width={CELL_W} height={h} />}
+          <Image
+            source={img.src}
+            style={[styles.cardImg, !loaded && { opacity: 0 }]}
+            resizeMode="cover"
+            onLoad={onLoad}
+            fadeDuration={200}
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(10,14,40,0.5)']}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        </TouchableOpacity>
+      </Animated.View>
     </Animated.View>
   );
 });
 
-// ─── Reset Zoom Button ────────────────────────────────────────────────────────
-const ResetBtn = memo(({ onPress, show }: { onPress: () => void; show: boolean }) => {
-  const anim = useAnimatedStyle(() => ({
-    opacity: withTiming(show ? 1 : 0, { duration: 180 }),
-    transform: [{ scale: withSpring(show ? 1 : 0.7, { damping: 18 }) }],
-  }));
-  return (
-    <Animated.View style={[styles.resetWrap, anim]} pointerEvents={show ? 'auto' : 'none'}>
-      <TouchableOpacity style={styles.resetBtn} onPress={onPress}>
-        <Text style={styles.resetTxt}>↺  Reset</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-});
-
-// ─── Lightbox ─────────────────────────────────────────────────────────────────
+// Lightbox — no zoom, simple slide transition
 interface LightboxProps {
   visible: boolean;
   idx: number | null;
@@ -129,281 +152,221 @@ interface LightboxProps {
 }
 
 function Lightbox({ visible, idx, onClose, onPrev, onNext }: LightboxProps) {
-  // Modal open/close animation
   const overlayOp = useSharedValue(0);
-  const boxSc = useSharedValue(0.88);
+  const boxSc     = useSharedValue(0.88);
+  const imgOp     = useSharedValue(1);
+  const imgTx     = useSharedValue(0);
 
-  // Opacity gambar — untuk fade transition saat ganti foto
-  const imgOp = useSharedValue(1);
-
-  // Zoom + pan shared values (diakses hanya di worklet)
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const tx = useSharedValue(0);
-  const ty = useSharedValue(0);
-  const savedTx = useSharedValue(0);
-  const savedTy = useSharedValue(0);
-
-  // State React biasa untuk kontrol tombol reset — TIDAK baca .value saat render
-  const [zoomed, setZoomed] = useState(false);
-
-  // Fungsi reset zoom — dipanggil dari JS thread
-  const doResetZoom = useCallback(() => {
-    scale.value = withSpring(1, { damping: 20, stiffness: 220 });
-    savedScale.value = 1;
-    tx.value = withSpring(0, { damping: 20, stiffness: 220 });
-    ty.value = withSpring(0, { damping: 20, stiffness: 220 });
-    savedTx.value = 0;
-    savedTy.value = 0;
-    setZoomed(false);
-  }, []);
-
-  // Buka modal
   React.useEffect(() => {
     if (visible) {
-      overlayOp.value = withTiming(1, { duration: 200 });
-      boxSc.value = withSpring(1, { damping: 22, stiffness: 250 });
-      imgOp.value = 1;
-      doResetZoom();
+      overlayOp.value = withTiming(1, { duration: 220 });
+      boxSc.value     = withSpring(1, { damping: 22, stiffness: 250 });
+      imgOp.value     = 1;
+      imgTx.value     = 0;
     }
   }, [visible]);
 
-  // Fade in saat idx berubah (setelah parent update index, gambar fade in kembali)
   React.useEffect(() => {
     if (visible) {
       imgOp.value = withTiming(1, { duration: 180 });
-      doResetZoom();
+      imgTx.value = 0;
     }
   }, [idx]);
 
-  // Wrapper prev/next: fade out → panggil parent → fade in via useEffect idx
   const handlePrev = useCallback(() => {
+    imgTx.value = withTiming(60, { duration: 120 });
     imgOp.value = withTiming(0, { duration: 140 }, (done) => {
       if (done) runOnJS(onPrev)();
     });
   }, [onPrev]);
 
   const handleNext = useCallback(() => {
+    imgTx.value = withTiming(-60, { duration: 120 });
     imgOp.value = withTiming(0, { duration: 140 }, (done) => {
       if (done) runOnJS(onNext)();
     });
   }, [onNext]);
 
   const handleClose = () => {
-    imgOp.value = withTiming(0, { duration: 120 });
-    overlayOp.value = withTiming(0, { duration: 150 }, (done) => {
+    imgOp.value     = withTiming(0, { duration: 120 });
+    overlayOp.value = withTiming(0, { duration: 200 }, (done) => {
       if (done) runOnJS(onClose)();
     });
     boxSc.value = withSpring(0.88);
   };
 
-  // ── Pinch gesture ────────────────────────────────────────────────────────
-  const pinch = Gesture.Pinch()
-    .onUpdate((e) => {
-      'worklet';
-      const next = savedScale.value * e.scale;
-      scale.value = Math.min(Math.max(next, 1), MAX_ZOOM);
-    })
-    .onEnd(() => {
-      'worklet';
-      if (scale.value < 1.08) {
-        scale.value = withSpring(1, { damping: 20, stiffness: 220 });
-        savedScale.value = 1;
-        tx.value = withSpring(0, { damping: 20, stiffness: 220 });
-        ty.value = withSpring(0, { damping: 20, stiffness: 220 });
-        savedTx.value = 0;
-        savedTy.value = 0;
-        runOnJS(setZoomed)(false);
-      } else {
-        savedScale.value = scale.value;
-        runOnJS(setZoomed)(true);
-      }
-    });
-
-  // ── Pan gesture (aktif saat zoom > 1) ────────────────────────────────────
-  const pan = Gesture.Pan()
-    .minDistance(1)
-    .averageTouches(true)
-    .onUpdate((e) => {
-      'worklet';
-      if (savedScale.value <= 1) return;
-      const limitX = ((scale.value - 1) * SCREEN_W * 0.9) / 2;
-      const limitY = ((scale.value - 1) * SCREEN_H * 0.62) / 2;
-      tx.value = Math.min(Math.max(savedTx.value + e.translationX, -limitX), limitX);
-      ty.value = Math.min(Math.max(savedTy.value + e.translationY, -limitY), limitY);
-    })
-    .onEnd(() => {
-      'worklet';
-      savedTx.value = tx.value;
-      savedTy.value = ty.value;
-    });
-
-  // ── Double tap: toggle zoom 2.5x ─────────────────────────────────────────
-  const dblTap = Gesture.Tap()
-    .numberOfTaps(2)
-    .maxDuration(250)
-    .onEnd(() => {
-      'worklet';
-      if (savedScale.value > 1) {
-        scale.value = withSpring(1, { damping: 20, stiffness: 220 });
-        savedScale.value = 1;
-        tx.value = withSpring(0, { damping: 20, stiffness: 220 });
-        ty.value = withSpring(0, { damping: 20, stiffness: 220 });
-        savedTx.value = 0;
-        savedTy.value = 0;
-        runOnJS(setZoomed)(false);
-      } else {
-        scale.value = withSpring(2.5, { damping: 20, stiffness: 220 });
-        savedScale.value = 2.5;
-        runOnJS(setZoomed)(true);
-      }
-    });
-
-  // Pinch + pan berjalan bersamaan; double-tap dikomposisi juga
-  const gesture = Gesture.Simultaneous(
-    Gesture.Simultaneous(pinch, pan),
-    dblTap
-  );
-
-  // ── Animated styles ───────────────────────────────────────────────────────
   const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOp.value }));
-  const boxStyle = useAnimatedStyle(() => ({
+  const boxStyle     = useAnimatedStyle(() => ({
     opacity: overlayOp.value,
     transform: [{ scale: boxSc.value }],
   }));
   const imgStyle = useAnimatedStyle(() => ({
     opacity: imgOp.value,
-    transform: [
-      { scale: scale.value },
-      { translateX: tx.value },
-      { translateY: ty.value },
-    ],
+    transform: [{ translateX: imgTx.value }],
   }));
 
   if (!visible || idx === null) return null;
   const img = galleryImages[idx];
 
   return (
-    <Modal transparent visible={visible} onRequestClose={handleClose} animationType="none" statusBarTranslucent>
+    <Modal
+      transparent
+      visible={visible}
+      onRequestClose={handleClose}
+      animationType="none"
+      statusBarTranslucent
+    >
       <StatusBar backgroundColor="transparent" translucent />
       <Animated.View style={[styles.lbOverlay, overlayStyle]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
 
         {/* Close */}
         <TouchableOpacity style={styles.lbClose} onPress={handleClose}>
-          <View style={styles.lbIconBtn}><XIcon size={20} color={Colors.foreground} /></View>
+          <View style={styles.lbIconBtn}>
+            <XIcon size={20} color={Colors.foreground} />
+          </View>
         </TouchableOpacity>
 
-        {/* Reset zoom */}
-        <ResetBtn onPress={doResetZoom} show={zoomed} />
+        {/* Counter pill */}
+        <View style={styles.lbCounterWrap}>
+          <LinearGradient
+            colors={['rgba(124,58,237,0.85)', 'rgba(16,185,129,0.85)']}
+            style={styles.lbCounterGrad}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <ImagesIcon size={12} color="#fff" />
+            <Text style={styles.lbCounterText}>{(idx ?? 0) + 1} / {galleryImages.length}</Text>
+          </LinearGradient>
+        </View>
 
         {/* Prev */}
         <TouchableOpacity style={styles.lbPrev} onPress={handlePrev}>
-          <View style={styles.lbIconBtn}><ChevronLeftIcon size={24} color={Colors.foreground} /></View>
+          <LinearGradient colors={['rgba(30,34,64,0.85)', 'rgba(30,34,64,0.6)']} style={styles.lbIconBtn}>
+            <ChevronLeftIcon size={24} color={Colors.foreground} />
+          </LinearGradient>
         </TouchableOpacity>
 
         {/* Next */}
         <TouchableOpacity style={styles.lbNext} onPress={handleNext}>
-          <View style={styles.lbIconBtn}><ChevronRightIcon size={24} color={Colors.foreground} /></View>
+          <LinearGradient colors={['rgba(30,34,64,0.85)', 'rgba(30,34,64,0.6)']} style={styles.lbIconBtn}>
+            <ChevronRightIcon size={24} color={Colors.foreground} />
+          </LinearGradient>
         </TouchableOpacity>
 
-        {/* Card */}
+        {/* Card — boxStyle carries scale transform, no entering */}
         <Animated.View style={[styles.lbCard, boxStyle]}>
-          <GestureDetector gesture={gesture}>
-            <Animated.View style={styles.lbImgWrap}>
-              <Animated.Image
-                key={idx}
-                source={img.src}
-                style={[styles.lbImg, imgStyle]}
-                resizeMode="contain"
-              />
-            </Animated.View>
-          </GestureDetector>
-
-          <View style={styles.lbFooter}>
-            <Text style={styles.lbTitle} numberOfLines={1}>{img.title?.trim() || ' '}</Text>
-            <Text style={styles.lbCounter}>{idx + 1} / {galleryImages.length}</Text>
+          <View style={styles.lbImgWrap}>
+            {/* imgStyle carries translate+opacity — no entering */}
+            <Animated.Image
+              key={idx}
+              source={img.src}
+              style={[styles.lbImg, imgStyle]}
+              resizeMode="contain"
+            />
           </View>
+
+          <LinearGradient
+            colors={['rgba(30,34,64,0.95)', 'rgba(10,14,40,0.98)']}
+            style={styles.lbFooter}
+          >
+            <Text style={styles.lbTitle} numberOfLines={1}>
+              {img.title?.trim() || 'XI RPL 2'}
+            </Text>
+            <View style={styles.lbHint}>
+              <ChevronLeftIcon size={10} color={Colors.mutedForeground} />
+              <Text style={styles.lbHintText}>Geser</Text>
+              <ChevronRightIcon size={10} color={Colors.mutedForeground} />
+            </View>
+          </LinearGradient>
         </Animated.View>
       </Animated.View>
     </Modal>
   );
 }
 
-// ─── Gallery Header ───────────────────────────────────────────────────────────
-const GalleryHeader = memo(() => (
-  <View style={styles.header}>
-    <Animated.View entering={ZoomIn.duration(420)} style={styles.badge}>
-      <LinearGradient colors={['rgba(124,58,237,0.2)', 'rgba(16,185,129,0.2)']} style={styles.badgeGrad}>
-        <ImagesIcon size={32} color={Colors.secondary} />
-      </LinearGradient>
-    </Animated.View>
-    <Animated.Text entering={FadeInDown.delay(100).duration(420)} style={styles.pageTitle}>
-      Photo Gallery
-    </Animated.Text>
-    <Animated.Text entering={FadeInDown.delay(200).duration(420)} style={styles.pageDesc}>
-      Momen-momen berharga kelas XI RPL 2
-    </Animated.Text>
-  </View>
-));
+// Gallery Header — FIX: ZoomIn entering on outer, pulse on inner
+const GalleryHeader = memo(() => {
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1.06, { duration: 1200 }),
+        withTiming(1,    { duration: 1200 }),
+      ),
+      -1,
+      false,
+    );
+  }, []);
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+  return (
+    <View style={styles.header}>
+      {/* Outer: ZoomIn entering — no transform */}
+      <Animated.View entering={ZoomIn.duration(450).springify()} style={styles.badgeOuter}>
+        {/* Inner: pulse scale — no entering */}
+        <Animated.View style={pulseStyle}>
+          <LinearGradient
+            colors={['rgba(124,58,237,0.25)', 'rgba(16,185,129,0.25)']}
+            style={styles.badgeGrad}
+          >
+            <ImagesIcon size={34} color={Colors.secondary} />
+          </LinearGradient>
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.Text entering={FadeInDown.delay(100).duration(450)} style={styles.pageTitle}>
+        Photo Gallery
+      </Animated.Text>
+      <Animated.Text entering={FadeInDown.delay(200).duration(450)} style={styles.pageDesc}>
+        Momen-momen berharga kelas XI RPL 2
+      </Animated.Text>
+
+      <Animated.View entering={FadeInDown.delay(280).duration(400)} style={styles.countBadge}>
+        <LinearGradient
+          colors={['rgba(124,58,237,0.15)', 'rgba(16,185,129,0.1)']}
+          style={styles.countBadgeInner}
+        >
+          <Text style={styles.countBadgeText}>{galleryImages.length} Foto</Text>
+        </LinearGradient>
+      </Animated.View>
+    </View>
+  );
+});
+
 export default function GalleryScreen() {
   const [selIdx, setSelIdx] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
-  useFocusEffect(useCallback(() => {
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, []));
+  useFocusEffect(
+    useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, []),
+  );
 
   const goNext = useCallback(() => {
-    setSelIdx((p) => p !== null ? (p + 1) % galleryImages.length : null);
+    setSelIdx((p) => (p !== null ? (p + 1) % galleryImages.length : null));
   }, []);
-
   const goPrev = useCallback(() => {
-    setSelIdx((p) => p !== null ? (p - 1 + galleryImages.length) % galleryImages.length : null);
+    setSelIdx((p) => (p !== null ? (p - 1 + galleryImages.length) % galleryImages.length : null));
   }, []);
 
   return (
     <View style={styles.container}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         <GalleryHeader />
-
-        {/* 2-kolom layout: kiri dan kanan dalam satu baris ScrollView */}
         <View style={styles.grid}>
-          {/* Kolom kiri */}
           <View style={styles.col}>
-            {LEFT_COL.map((img, ci) => {
-              const gi = ci * 2; // index global: 0, 2, 4, ...
-              return (
-                <PhotoCard
-                  key={img.id}
-                  img={img}
-                  globalIdx={gi}
-                  colIdx={ci}
-                  onPress={setSelIdx}
-                />
-              );
-            })}
+            {LEFT_COL.map((img, ci) => (
+              <PhotoCard key={img.id} img={img} globalIdx={ci * 2} colIdx={ci} onPress={setSelIdx} />
+            ))}
           </View>
-
-          {/* Kolom kanan */}
           <View style={styles.col}>
-            {RIGHT_COL.map((img, ci) => {
-              const gi = ci * 2 + 1; // index global: 1, 3, 5, ...
-              return (
-                <PhotoCard
-                  key={img.id}
-                  img={img}
-                  globalIdx={gi}
-                  colIdx={ci}
-                  onPress={setSelIdx}
-                />
-              );
-            })}
+            {RIGHT_COL.map((img, ci) => (
+              <PhotoCard key={img.id} img={img} globalIdx={ci * 2 + 1} colIdx={ci} onPress={setSelIdx} />
+            ))}
           </View>
         </View>
-
         <View style={{ height: 48 }} />
       </ScrollView>
 
@@ -418,68 +381,36 @@ export default function GalleryScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const LB_TOP = (StatusBar.currentHeight || 44) + 8;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-
-  // Header
   header: { alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: Spacing.lg },
-  badge: { marginBottom: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(124,58,237,0.35)' },
-  badgeGrad: { padding: 14 },
-  pageTitle: { fontFamily: Typography.heading, fontSize: 30, color: Colors.primary, textAlign: 'center', marginBottom: 6 },
-  pageDesc: { fontFamily: Typography.body, fontSize: 14, color: Colors.mutedForeground, textAlign: 'center' },
-
-  // Grid — 2 kolom berdampingan, masing-masing tumbuh sendiri
-  grid: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.md,
-    gap: COL_GAP,
-  },
-  col: {
-    flex: 1,       // masing-masing kolom ambil setengah lebar
-  },
-  card: {
-    width: '100%',
-    borderRadius: BorderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    backgroundColor: Colors.muted,
-  },
+  badgeOuter: { marginBottom: Spacing.md, borderRadius: BorderRadius.xl, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(124,58,237,0.4)' },
+  badgeGrad: { padding: 16 },
+  pageTitle: { fontFamily: Typography.heading, fontSize: 32, color: Colors.primary, textAlign: 'center', marginBottom: 6, textShadowColor: 'rgba(124,58,237,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 14 },
+  pageDesc: { fontFamily: Typography.body, fontSize: 14, color: Colors.mutedForeground, textAlign: 'center', marginBottom: Spacing.sm },
+  countBadge: { borderRadius: BorderRadius.full, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder },
+  countBadgeInner: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 5 },
+  countBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 12, color: Colors.mutedForeground },
+  grid: { flexDirection: 'row', paddingHorizontal: Spacing.md, gap: COL_GAP },
+  col: { flex: 1 },
+  card: { width: '100%', borderRadius: BorderRadius.md, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder, backgroundColor: Colors.muted },
   cardImg: { width: '100%', height: '100%' },
-
   // Lightbox
-  lbOverlay: { flex: 1, backgroundColor: 'rgba(4,6,20,0.95)', alignItems: 'center', justifyContent: 'center' },
+  lbOverlay: { flex: 1, backgroundColor: 'rgba(2,4,16,0.96)', alignItems: 'center', justifyContent: 'center' },
   lbClose: { position: 'absolute', top: LB_TOP, right: 16, zIndex: 30 },
-  lbPrev: { position: 'absolute', left: 12, top: '50%', marginTop: -22, zIndex: 30 },
-  lbNext: { position: 'absolute', right: 12, top: '50%', marginTop: -22, zIndex: 30 },
-  lbIconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(30,34,64,0.82)', alignItems: 'center', justifyContent: 'center' },
-  resetWrap: { position: 'absolute', top: LB_TOP, left: 16, zIndex: 30 },
-  resetBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 22, backgroundColor: 'rgba(124,58,237,0.90)' },
-  resetTxt: { fontFamily: Typography.bodyMedium, fontSize: 13, color: Colors.foreground },
-  lbCard: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.xl,
-    overflow: 'hidden',
-    width: SCREEN_W * 0.9,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-  },
-  lbImgWrap: {
-    width: SCREEN_W * 0.9,
-    height: SCREEN_H * 0.62,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.muted,
-  },
-  lbImg: { width: SCREEN_W * 0.9, height: SCREEN_H * 0.62 },
-  lbFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 12, backgroundColor: Colors.card },
+  lbCounterWrap: { position: 'absolute', top: LB_TOP + 2, alignSelf: 'center', zIndex: 30 },
+  lbCounterGrad: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: BorderRadius.full },
+  lbCounterText: { fontFamily: Typography.bodyMedium, fontSize: 12, color: Colors.foreground },
+  lbPrev: { position: 'absolute', left: 10, top: '50%', marginTop: -24, zIndex: 30 },
+  lbNext: { position: 'absolute', right: 10, top: '50%', marginTop: -24, zIndex: 30 },
+  lbIconBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  lbCard: { backgroundColor: Colors.card, borderRadius: BorderRadius.xl, overflow: 'hidden', width: SCREEN_W * 0.92, elevation: 24, shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.4, shadowRadius: 32, borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)' },
+  lbImgWrap: { width: SCREEN_W * 0.92, height: SCREEN_H * 0.60, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.muted },
+  lbImg: { width: SCREEN_W * 0.92, height: SCREEN_H * 0.60 },
+  lbFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 14 },
   lbTitle: { fontFamily: Typography.bodyMedium, fontSize: 13, color: Colors.foreground, flex: 1 },
-  lbCounter: { fontFamily: Typography.body, fontSize: 12, color: Colors.mutedForeground, marginLeft: Spacing.sm },
+  lbHint: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: BorderRadius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  lbHintText: { fontFamily: Typography.body, fontSize: 10, color: Colors.mutedForeground },
 });

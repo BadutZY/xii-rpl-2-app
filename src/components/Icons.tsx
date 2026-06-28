@@ -1,5 +1,7 @@
 import React from 'react';
-import Svg, { Path, Polyline, Line, Circle, Rect, Polygon } from 'react-native-svg';
+import Svg, {
+  Path, Polyline, Line, Circle, Rect, Polygon, G, Ellipse,
+} from 'react-native-svg';
 
 interface IconProps {
   size?: number;
@@ -48,9 +50,9 @@ export const ArrowDownIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }:
 
 export const DatabaseIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
-    <Polyline points="21 8 21 21 3 21 3 8" />
-    <Rect x="1" y="3" width="22" height="5" />
-    <Line x1="10" y1="12" x2="14" y2="12" />
+    <Ellipse cx="12" cy="5" rx="9" ry="3" />
+    <Path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+    <Path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
   </Svg>
 );
 
@@ -202,6 +204,13 @@ export const PlayIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: Icon
   </Svg>
 );
 
+export const PauseIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="6" y="4" width="4" height="16" />
+    <Rect x="14" y="4" width="4" height="16" />
+  </Svg>
+);
+
 export const MaximizeIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
@@ -236,5 +245,119 @@ export const ChevronRightIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2
 export const PersonIcon = ({ size = 24, color = '#ffffff' }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 20 20" fill={color}>
     <Path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+  </Svg>
+);
+
+// ─── New icons for replacing emojis ──────────────────────────────────────────
+
+// 📚 Book / Curriculum
+export const BookIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <Path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+  </Svg>
+);
+
+// 🚀 Rocket / Activity
+export const RocketIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+    <Path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+    <Path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+    <Path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+  </Svg>
+);
+
+// 🔍 Magnify / Search (alias)
+export { SearchIcon as MagnifyIcon };
+
+// ✦ Star / Sparkle
+export const SparkleIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 2L9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z" />
+  </Svg>
+);
+
+// School / SMK badge
+export const SchoolIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <Polyline points="9 22 9 12 15 12 15 22" />
+  </Svg>
+);
+
+// Award / Achievement
+export const AwardIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="8" r="6" />
+    <Path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+  </Svg>
+);
+
+// Volume / Sound
+export const VolumeIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <Path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+  </Svg>
+);
+
+export const VolumeOffIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <Line x1="23" y1="9" x2="17" y2="15" />
+    <Line x1="17" y1="9" x2="23" y2="15" />
+  </Svg>
+);
+
+// Rotate / Landscape
+export const RotateIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M23 4v6h-6" />
+    <Path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+  </Svg>
+);
+
+// Rewind 10s
+export const RewindIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Polygon points="11 19 2 12 11 5 11 19" />
+    <Polygon points="22 19 13 12 22 5 22 19" />
+  </Svg>
+);
+
+// Forward 10s
+export const ForwardIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Polygon points="13 19 22 12 13 5 13 19" />
+    <Polygon points="2 19 11 12 2 5 2 19" />
+  </Svg>
+);
+
+// Film (local video)
+export const FilmIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+    <Line x1="7" y1="2" x2="7" y2="22" />
+    <Line x1="17" y1="2" x2="17" y2="22" />
+    <Line x1="2" y1="12" x2="22" y2="12" />
+    <Line x1="2" y1="7" x2="7" y2="7" />
+    <Line x1="2" y1="17" x2="7" y2="17" />
+    <Line x1="17" y1="17" x2="22" y2="17" />
+    <Line x1="17" y1="7" x2="22" y2="7" />
+  </Svg>
+);
+
+// Loading spinner (circle with gap) — used as static icon
+export const LoaderIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="12" y1="2" x2="12" y2="6" />
+    <Line x1="12" y1="18" x2="12" y2="22" />
+    <Line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+    <Line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+    <Line x1="2" y1="12" x2="6" y2="12" />
+    <Line x1="18" y1="12" x2="22" y2="12" />
+    <Line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+    <Line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
   </Svg>
 );

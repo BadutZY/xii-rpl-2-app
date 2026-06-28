@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, Animated as RNAnimated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography } from '../../src/constants/theme';
 import {
@@ -19,30 +19,71 @@ interface TabIconProps {
 }
 
 function TabBarIcon({ focused, icon, focusedIcon, label }: TabIconProps) {
+  const scaleAnim = useRef(new RNAnimated.Value(focused ? 1 : 0.9)).current;
+  const opacityAnim = useRef(new RNAnimated.Value(focused ? 1 : 0.6)).current;
+  const pillWidth = useRef(new RNAnimated.Value(focused ? 52 : 36)).current;
+  const dotOpacity = useRef(new RNAnimated.Value(focused ? 1 : 0)).current;
+
+  useEffect(() => {
+    RNAnimated.parallel([
+      RNAnimated.spring(scaleAnim, {
+        toValue: focused ? 1.08 : 0.9,
+        useNativeDriver: false,
+        damping: 15,
+        stiffness: 250,
+      }),
+      RNAnimated.timing(opacityAnim, {
+        toValue: focused ? 1 : 0.55,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+      RNAnimated.spring(pillWidth, {
+        toValue: focused ? 52 : 36,
+        useNativeDriver: false,
+        damping: 18,
+        stiffness: 200,
+      }),
+      RNAnimated.timing(dotOpacity, {
+        toValue: focused ? 1 : 0,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [focused]);
+
   return (
     <View style={styles.tabItem}>
-      <View style={[styles.tabIconWrap, focused && styles.tabIconWrapActive]}>
+      <RNAnimated.View
+        style={[
+          styles.tabIconWrap,
+          {
+            width: pillWidth,
+            opacity: opacityAnim,
+            transform: [{ scale: scaleAnim }],
+            backgroundColor: focused ? 'rgba(16,185,129,0.18)' : 'transparent',
+          },
+        ]}
+      >
         {focused ? focusedIcon : icon}
-      </View>
+      </RNAnimated.View>
       <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
         {label}
       </Text>
+      <RNAnimated.View style={[styles.activeDot, { opacity: dotOpacity }]} />
     </View>
   );
 }
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-
-  // Tinggi tab bar dasar + tambahan safe area bottom (gesture bar Android/iOS)
-  const tabBarHeight = 56 + insets.bottom;
+  const tabBarHeight = 60 + insets.bottom;
 
   return (
     <Tabs
       screenOptions={{
         headerStyle: {
           backgroundColor: Colors.card,
-          borderBottomColor: Colors.border,
+          borderBottomColor: 'rgba(120,60,210,0.25)',
           borderBottomWidth: 1,
           elevation: 0,
           shadowOpacity: 0,
@@ -56,7 +97,7 @@ export default function TabsLayout() {
           styles.tabBar,
           {
             height: tabBarHeight,
-            paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           },
         ],
         tabBarShowLabel: false,
@@ -141,26 +182,26 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: Colors.card,
-    borderTopColor: Colors.border,
+    borderTopColor: 'rgba(120,60,210,0.25)',
     borderTopWidth: 1,
     paddingTop: 6,
-    elevation: 0,
-    shadowOpacity: 0,
+    elevation: 24,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+    minWidth: 56,
   },
   tabIconWrap: {
-    width: 36,
-    height: 26,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-  },
-  tabIconWrapActive: {
-    backgroundColor: 'rgba(16,185,129,0.15)',
+    borderRadius: 16,
   },
   tabLabel: {
     fontFamily: Typography.body,
@@ -170,5 +211,12 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: Colors.secondary,
     fontFamily: Typography.bodyMedium,
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.secondary,
+    marginTop: 1,
   },
 });

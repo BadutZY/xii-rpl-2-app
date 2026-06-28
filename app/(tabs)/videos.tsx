@@ -1,19 +1,35 @@
 /**
- * videos.tsx  —  app/(tabs)/videos.tsx
+ * videos.tsx — app/(tabs)/videos.tsx
  *
- * Fix Error 153:
- * YouTube memblokir embed via WebView native (user-agent detection).
- * Solusi profesional: buka video langsung di app YouTube / browser
- * menggunakan Linking.openURL() — ini cara yang dipakai semua app besar.
+ * Local video player menggunakan react-native-webview (sudah terinstall).
+ * Tidak butuh expo-av / expo-video sama sekali.
  *
- * Modal sekarang menampilkan:
- *  - Thumbnail besar dengan tombol play
- *  - Info video (judul, deskripsi)
- *  - Tombol "Tonton di YouTube" → buka app YouTube (atau browser sebagai fallback)
- *  - Tombol "Salin Link" → copy URL ke clipboard
+ * HOW TO ADD LOCAL VIDEOS di src/data/videos.ts:
+ *   {
+ *     id: 'local-1',
+ *     title: 'Video Kelas',
+ *     categoryId: 'vlogindo',
+ *     type: 'local',
+ *     src: 'https://cdn.example.com/video.mp4',
+ *     thumbnail: require('../../assets/videos/thumb.jpg'),
+ *     orientation: 'landscape', // 'landscape' atau 'portrait'
+ *   }
+ *
+ * ORIENTASI FULLSCREEN (hanya untuk video lokal):
+ *   - 'landscape' → layar rotate ke horizontal saat fullscreen (default)
+ *   - 'portrait'  → layar tetap vertikal saat fullscreen
+ *
+ * YouTube: langsung buka di YouTube app / browser (sama seperti sebelumnya).
  */
 
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  useEffect,
+  memo,
+} from 'react';
 import {
   View,
   Text,
@@ -27,7 +43,28 @@ import {
   Linking,
   Share,
   Pressable,
+  Platform,
 } from 'react-native';
+
+/**
+ * Resolve a video src (string URL or require() number) to a string URL
+ * usable inside WebView's HTML5 <video src="...">.
+ *
+ * - string  → returned as-is (URL or data URI)
+ * - number  → Metro bundled asset; resolved via Image.resolveAssetSource()
+ *             which returns the local file:// or http://localhost URI
+ *             that the packager serves during development.
+ */
+function resolveVideoSrc(src: string | number): string {
+  if (typeof src === 'string') return src;
+  try {
+    // Image.resolveAssetSource works for any static asset (images, video, audio)
+    const resolved = Image.resolveAssetSource(src);
+    return resolved?.uri ?? '';
+  } catch {
+    return '';
+  }
+}
 import Animated, {
   FadeInDown,
   ZoomIn,
@@ -36,11 +73,16 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withRepeat,
+  withSequence,
   runOnJS,
+  Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography, BorderRadius, Spacing } from '../../src/constants/theme';
 import {
   videos,
@@ -49,6 +91,7 @@ import {
   getYouTubeId,
   type VideoItem,
   type VideoCategory,
+  type VideoOrientation,
 } from '../../src/data/videos';
 import {
   VideoIcon,
@@ -59,79 +102,342 @@ import {
   XIcon,
   EyeIcon,
   EyeOffIcon,
+  FilmIcon,
+  MaximizeIcon,
+  MinimizeIcon,
 } from '../../src/components/Icons';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const AnimatedView = Animated.createAnimatedComponent(View);
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-// ─── Buka video di app YouTube atau browser ───────────────────────────────────
-
+// ─── helpers ──────────────────────────────────────────────────────────────────
 async function openYouTube(url: string) {
-  const id = getYouTubeId(url);
-  if (!id) {
-    // fallback: buka URL asli
-    Linking.openURL(url).catch(() => {});
-    return;
-  }
-
-  // Coba buka di app YouTube terlebih dahulu
-  const ytAppUrl = `vnd.youtube://${id}`;
-  const canOpen = await Linking.canOpenURL(ytAppUrl).catch(() => false);
-
-  if (canOpen) {
-    Linking.openURL(ytAppUrl).catch(() => {
-      // fallback ke browser
-      Linking.openURL(`https://www.youtube.com/watch?v=${id}`).catch(() => {});
-    });
-  } else {
-    // App YouTube tidak terinstall → buka di browser
-    Linking.openURL(`https://www.youtube.com/watch?v=${id}`).catch(() => {});
-  }
+  const id  = getYouTubeId(url);
+  if (!id) { Linking.openURL(url).catch(() => {}); return; }
+  const app = `vnd.youtube://${id}`;
+  const can = await Linking.canOpenURL(app).catch(() => false);
+  Linking.openURL(can ? app : `https://www.youtube.com/watch?v=${id}`).catch(() => {});
 }
 
-// ─── Video Player Modal ────────────────────────────────────────────────────────
+// ─── Pulsing play button ──────────────────────────────────────────────────────
+function PulsingPlay({ size = 64, onPress }: { size?: number; onPress: () => void }) {
+  const ring   = useSharedValue(1);
+  const ringOp = useSharedValue(0.5);
 
-function VideoPlayerModal({
+  useEffect(() => {
+    ring.value = withRepeat(
+      withSequence(
+        withTiming(1.7, { duration: 1400, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 0 }),
+      ), -1, false,
+    );
+    ringOp.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 1400, easing: Easing.out(Easing.ease) }),
+        withTiming(0.5, { duration: 0 }),
+      ), -1, false,
+    );
+  }, []);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    position: 'absolute' as const,
+    width: size, height: size, borderRadius: size / 2,
+    borderWidth: 2, borderColor: '#ef4444',
+    transform: [{ scale: ring.value }],
+    opacity: ringOp.value,
+  }));
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={ringStyle} />
+      <LinearGradient
+        colors={['#ef4444', '#b91c1c']}
+        style={{
+          width: size, height: size, borderRadius: size / 2,
+          alignItems: 'center', justifyContent: 'center', paddingLeft: 3,
+        }}
+      >
+        <PlayIcon size={size * 0.38} color="#fff" />
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Local Video Player Modal (WebView HTML5) ─────────────────────────────────
+function LocalVideoModal({
   video,
   onClose,
 }: {
   video: VideoItem | null;
   onClose: () => void;
 }) {
-  const overlayOpacity = useSharedValue(0);
-  const boxScale = useSharedValue(0.92);
+  const [isFS,  setIsFS]  = useState(false);
+  const overlayOp = useSharedValue(0);
+  const boxTy     = useSharedValue(60);
 
-  React.useEffect(() => {
+  // Deteksi safe area (notch, status bar, navigation bar)
+  const insets = useSafeAreaInsets();
+
+  // Ambil orientasi dari data video, default ke 'landscape'
+  const videoOrientation: VideoOrientation = video?.orientation ?? 'landscape';
+
+  useEffect(() => {
     if (video) {
-      overlayOpacity.value = withTiming(1, { duration: 220 });
-      boxScale.value = withSpring(1, { damping: 22, stiffness: 260 });
+      overlayOp.value = withTiming(1, { duration: 240 });
+      boxTy.value     = withSpring(0, { damping: 24, stiffness: 260 });
+      setIsFS(false);
     }
   }, [video]);
 
-  const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
-  const boxStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: boxScale.value }],
-    opacity: overlayOpacity.value,
+  const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOp.value }));
+  const boxStyle     = useAnimatedStyle(() => ({
+    transform: [{ translateY: boxTy.value }],
+    opacity: overlayOp.value,
+  }));
+
+  const handleClose = useCallback(async () => {
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    overlayOp.value = withTiming(0, { duration: 180 }, (done) => {
+      if (done) runOnJS(onClose)();
+    });
+    boxTy.value = withTiming(40, { duration: 180 });
+    setIsFS(false);
+  }, [onClose]);
+
+  const toggleFS = async () => {
+    if (!isFS) {
+      if (videoOrientation === 'portrait') {
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.PORTRAIT_UP,
+        ).catch(() => {});
+      } else {
+        await ScreenOrientation.lockAsync(
+          ScreenOrientation.OrientationLock.LANDSCAPE,
+        ).catch(() => {});
+      }
+      setIsFS(true);
+    } else {
+      await ScreenOrientation.lockAsync(
+        ScreenOrientation.OrientationLock.PORTRAIT_UP,
+      ).catch(() => {});
+      setIsFS(false);
+    }
+  };
+
+  if (!video) return null;
+
+  const videoSrc = resolveVideoSrc(video.src);
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+      display: block;
+    }
+    video::-webkit-media-controls { display: flex !important; }
+    video::-webkit-media-controls-panel { background: linear-gradient(transparent, rgba(0,0,0,0.85)); }
+    video::-webkit-media-controls-play-button { filter: brightness(2); }
+    video::-webkit-media-controls-timeline { accent-color: #7c3aed; }
+    video::-webkit-media-controls-volume-slider { accent-color: #10b981; }
+  </style>
+</head>
+<body>
+  <video
+    src="${videoSrc}"
+    controls
+    autoplay
+    playsinline
+    preload="metadata"
+  ></video>
+</body>
+</html>
+`;
+
+  const dim = Dimensions.get('window');
+
+  // ── Dimensi video (mode normal / non-fullscreen) ──────────────────────────
+  // Hanya dipakai saat !isFS. Saat fullscreen, video memakai flex: 1.
+  const previewW = dim.width;
+  const previewH = dim.width * (9 / 16);
+
+  // ── Safe area untuk header saat fullscreen ────────────────────────────────
+  // React Native melaporkan insets relatif terhadap orientasi layar SAAT INI,
+  // sehingga kita cukup pakai insets.top / insets.bottom / insets.left / insets.right
+  // tanpa perlu konversi manual.
+  //
+  // Landscape: insets.left  = lebar notch/punch-hole di sisi kiri
+  //            insets.right = lebar area navigasi di sisi kanan (beberapa device)
+  //            insets.top / insets.bottom = biasanya kecil/0 dalam landscape
+  //
+  // Portrait:  insets.top    = status bar + notch
+  //            insets.bottom = navigation bar (home indicator)
+  //            insets.left / insets.right = biasanya 0
+
+  // Padding aman untuk container fullscreen
+  const fsSafePadding = isFS
+    ? {
+        paddingTop:    insets.top    > 0 ? insets.top    : 0,
+        paddingBottom: insets.bottom > 0 ? insets.bottom : 0,
+        paddingLeft:   insets.left   > 0 ? insets.left   : 0,
+        paddingRight:  insets.right  > 0 ? insets.right  : 0,
+      }
+    : {};
+
+  return (
+    <Modal
+      transparent
+      visible={!!video}
+      onRequestClose={handleClose}
+      animationType="none"
+      statusBarTranslucent
+      supportedOrientations={['portrait', 'landscape']}
+    >
+      {/*
+        StatusBar disembunyikan saat fullscreen agar tidak mengganggu tampilan,
+        tapi insets.top tetap bernilai positif (lebar area notch/kamera) sehingga
+        kita masih bisa menghindari area tersebut.
+      */}
+      <StatusBar hidden={isFS} backgroundColor="transparent" translucent />
+
+      <Animated.View style={[isFS ? styles.modalOverlayFS : styles.modalOverlay, overlayStyle]}>
+        {!isFS && <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />}
+
+        <Animated.View style={[isFS ? styles.modalBoxFS : styles.modalBox, fsSafePadding, boxStyle]}>
+          {/* Gradient glow (hanya mode normal) */}
+          {!isFS && (
+            <LinearGradient
+              colors={['rgba(124,58,237,0.18)', 'rgba(16,185,129,0.10)', 'transparent']}
+              style={styles.modalTopGrad}
+            />
+          )}
+
+          {/* ── Header ─────────────────────────────────────────────────────── */}
+          <View style={[styles.modalHeader, isFS && styles.modalHeaderFS]}>
+            <View style={styles.modalTitleWrap}>
+              <View style={styles.filmIconBadge}>
+                <FilmIcon size={15} color={Colors.primary} />
+              </View>
+              <Text style={[styles.modalTitle, isFS && { flex: 1 }]} numberOfLines={1}>
+                {video.title}
+              </Text>
+            </View>
+            <View style={styles.headerActions}>
+              {/* Badge orientasi hanya ditampilkan saat BUKAN fullscreen */}
+              {!isFS && (
+                <View style={[
+                  styles.orientationBadge,
+                  videoOrientation === 'portrait' && styles.orientationBadgePortrait,
+                ]}>
+                  <Text style={styles.orientationBadgeText}>
+                    {videoOrientation === 'portrait' ? '↕ Portrait' : '↔ Landscape'}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity onPress={toggleFS} style={styles.iconActionBtn} hitSlop={8}>
+                {isFS
+                  ? <MinimizeIcon size={18} color={Colors.foreground} />
+                  : <MaximizeIcon size={18} color={Colors.foreground} />}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClose} style={styles.modalCloseBtn} hitSlop={8}>
+                <XIcon size={17} color={Colors.foreground} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── Area Video ─────────────────────────────────────────────────── */}
+          {/*
+            Mode normal  → ukuran tetap (previewW × previewH).
+            Mode fullscreen → flex: 1 agar mengisi ruang tersisa setelah
+            header dan safe area padding diterapkan pada container.
+            Dengan cara ini video TIDAK pernah menyentuh notch, status bar,
+            maupun navigation bar, di landscape maupun portrait.
+          */}
+          <View style={isFS ? styles.videoAreaFS : { width: previewW, height: previewH, backgroundColor: '#000' }}>
+            <WebView
+              source={{ html }}
+              style={isFS ? styles.webviewFS : { width: previewW, height: previewH, backgroundColor: '#000' }}
+              mediaPlaybackRequiresUserAction={false}
+              allowsInlineMediaPlayback
+              allowsFullscreenVideo={false}
+              javaScriptEnabled
+              scrollEnabled={false}
+              bounces={false}
+              overScrollMode="never"
+              onShouldStartLoadWithRequest={() => true}
+            />
+          </View>
+
+          {/* Info (hanya mode normal) */}
+          {!isFS && (
+            <View style={styles.modalInfo}>
+              <Text style={styles.modalInfoTitle}>{video.title}</Text>
+              {video.description ? (
+                <Text style={styles.modalInfoDesc}>{video.description}</Text>
+              ) : null}
+              <View style={styles.modalInfoRow}>
+                <View style={styles.modalInfoDotLocal} />
+                <Text style={styles.modalInfoMeta}>XI RPL 2 · SMK INFOKOM · Video Lokal</Text>
+              </View>
+            </View>
+          )}
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+// ─── YouTube Player Modal ─────────────────────────────────────────────────────
+function YouTubeModal({
+  video,
+  onClose,
+}: {
+  video: VideoItem | null;
+  onClose: () => void;
+}) {
+  const overlayOp = useSharedValue(0);
+  const boxTy     = useSharedValue(60);
+
+  useEffect(() => {
+    if (video) {
+      overlayOp.value = withTiming(1, { duration: 240 });
+      boxTy.value     = withSpring(0, { damping: 24, stiffness: 260 });
+    }
+  }, [video]);
+
+  const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOp.value }));
+  const boxStyle     = useAnimatedStyle(() => ({
+    transform: [{ translateY: boxTy.value }],
+    opacity: overlayOp.value,
   }));
 
   const handleClose = useCallback(() => {
-    overlayOpacity.value = withTiming(0, { duration: 160 }, (done) => {
+    overlayOp.value = withTiming(0, { duration: 180 }, (done) => {
       if (done) runOnJS(onClose)();
     });
-    boxScale.value = withSpring(0.92);
+    boxTy.value = withTiming(40, { duration: 180 });
   }, [onClose]);
 
   const handleShare = useCallback(async () => {
     if (!video) return;
     try {
-      await Share.share({ message: `${video.title}\n${video.src}` });
+      const srcStr = typeof video.src === 'string' ? video.src : '';
+      await Share.share({ message: `${video.title}\n${srcStr}` });
     } catch {}
   }, [video]);
 
   if (!video) return null;
 
-  const thumb = video.thumbnail ?? (video.type === 'youtube' ? getYouTubeThumbnail(video.src) : null);
-  const youtubeId = getYouTubeId(video.src);
+  const thumb  = video.thumbnail
+    ?? (video.type === 'youtube' && typeof video.src === 'string' ? getYouTubeThumbnail(video.src) : null);
+  const THUMB_H = SCREEN_W * (9 / 16);
 
   return (
     <Modal
@@ -142,86 +448,75 @@ function VideoPlayerModal({
       statusBarTranslucent
     >
       <StatusBar backgroundColor="transparent" translucent />
-      <AnimatedView style={[styles.modalOverlay, overlayStyle]}>
+      <Animated.View style={[styles.modalOverlay, overlayStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
 
-        <AnimatedView style={[styles.modalBox, boxStyle]}>
-          {/* ── Header ── */}
+        {/* Outer: slide-up — NO entering */}
+        <Animated.View style={[styles.modalBox, boxStyle]}>
+          <LinearGradient
+            colors={['rgba(239,68,68,0.18)', 'rgba(124,58,237,0.10)', 'transparent']}
+            style={styles.modalTopGrad}
+          />
+
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleWrap}>
-              <YoutubeIcon size={18} color="#ef4444" />
+              <View style={styles.ytIconBadge}>
+                <YoutubeIcon size={16} color="#ef4444" />
+              </View>
               <Text style={styles.modalTitle} numberOfLines={2}>{video.title}</Text>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.modalCloseBtn} hitSlop={8}>
-              <XIcon size={18} color={Colors.foreground} />
+              <XIcon size={17} color={Colors.foreground} />
             </TouchableOpacity>
           </View>
 
-          {/* ── Thumbnail besar + tombol Play ── */}
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => openYouTube(video.src)}
-            style={styles.thumbArea}
-          >
-            {thumb ? (
-              <Image source={{ uri: thumb }} style={styles.thumbImg} resizeMode="cover" />
-            ) : (
-              <LinearGradient
-                colors={['rgba(124,58,237,0.35)', 'rgba(16,185,129,0.25)']}
-                style={styles.thumbFallback}
-              >
-                <YoutubeIcon size={48} color="rgba(255,255,255,0.4)" />
-              </LinearGradient>
-            )}
-
-            {/* Overlay gelap */}
-            <View style={styles.thumbOverlay} />
-
-            {/* Tombol play besar di tengah */}
+          {/* Thumbnail */}
+          <View style={[styles.thumbArea, { height: THUMB_H }]}>
+            {thumb
+              ? <Image
+                  source={typeof thumb === 'string' ? { uri: thumb } : (thumb as any)}
+                  style={styles.thumbImg}
+                  resizeMode="cover"
+                />
+              : <LinearGradient
+                  colors={['rgba(124,58,237,0.35)', 'rgba(16,185,129,0.25)']}
+                  style={styles.thumbFallback}
+                >
+                  <YoutubeIcon size={48} color="rgba(255,255,255,0.3)" />
+                </LinearGradient>}
+            <LinearGradient
+              colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.5)']}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={styles.playBtnCenter}>
-              <LinearGradient
-                colors={['#dc2626', '#b91c1c']}
-                style={styles.playBtnGrad}
-              >
-                <PlayIcon size={32} color="#fff" />
-              </LinearGradient>
+              <PulsingPlay size={72} onPress={() => typeof video.src === 'string' && openYouTube(video.src)} />
             </View>
-
-            {/* Badge YouTube */}
             <View style={styles.ytBadge}>
-              <YoutubeIcon size={13} color="#fff" />
+              <YoutubeIcon size={12} color="#fff" />
               <Text style={styles.ytBadgeText}>YouTube</Text>
             </View>
-
-            {/* Label "Ketuk untuk menonton" */}
             <View style={styles.tapHint}>
-              <Text style={styles.tapHintText}>Ketuk untuk menonton</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* ── Info ── */}
-          <View style={styles.modalInfo}>
-            <Text style={styles.modalInfoTitle}>{video.title}</Text>
-            {video.description ? (
-              <Text style={styles.modalInfoDesc}>{video.description}</Text>
-            ) : null}
-
-            <View style={styles.modalInfoRow}>
-              <YoutubeIcon size={13} color="#ef4444" />
-              <Text style={styles.modalInfoMeta}>YouTube · XI RPL 2</Text>
+              <Text style={styles.tapHintText}>Ketuk untuk menonton di YouTube</Text>
             </View>
           </View>
 
-          {/* ── Tombol aksi ── */}
+          <View style={styles.modalInfo}>
+            <Text style={styles.modalInfoTitle}>{video.title}</Text>
+            {video.description ? <Text style={styles.modalInfoDesc}>{video.description}</Text> : null}
+            <View style={styles.modalInfoRow}>
+              <View style={styles.modalInfoDotYt} />
+              <Text style={styles.modalInfoMeta}>XI RPL 2 · SMK INFOKOM</Text>
+            </View>
+          </View>
+
           <View style={styles.actionRow}>
-            {/* Tombol utama: Tonton di YouTube */}
             <TouchableOpacity
-              style={styles.watchBtn}
-              activeOpacity={0.82}
-              onPress={() => openYouTube(video.src)}
+              style={styles.watchBtnWrap}
+              activeOpacity={0.85}
+              onPress={() => typeof video.src === 'string' && openYouTube(video.src)}
             >
               <LinearGradient
-                colors={['#dc2626', '#b91c1c']}
+                colors={['#ef4444', '#b91c1c']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.watchBtnGrad}
@@ -230,24 +525,17 @@ function VideoPlayerModal({
                 <Text style={styles.watchBtnText}>Tonton di YouTube</Text>
               </LinearGradient>
             </TouchableOpacity>
-
-            {/* Tombol share */}
-            <TouchableOpacity
-              style={styles.shareBtn}
-              activeOpacity={0.82}
-              onPress={handleShare}
-            >
+            <TouchableOpacity style={styles.shareBtn} activeOpacity={0.82} onPress={handleShare}>
               <Text style={styles.shareBtnText}>Bagikan</Text>
             </TouchableOpacity>
           </View>
-        </AnimatedView>
-      </AnimatedView>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }
 
-// ─── VideoCard ─────────────────────────────────────────────────────────────────
-
+// ─── VideoCard — FIX: entering on outer, transform on inner ──────────────────
 function VideoCard({
   video,
   index,
@@ -257,56 +545,82 @@ function VideoCard({
   index: number;
   onPress: () => void;
 }) {
-  const thumb = video.thumbnail ?? (video.type === 'youtube' ? getYouTubeThumbnail(video.src) : null);
+  const thumb      = video.thumbnail
+    ?? (video.type === 'youtube' && typeof video.src === 'string' ? getYouTubeThumbnail(video.src) : null);
+  const pressScale = useSharedValue(1);
+  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: pressScale.value }] }));
 
   return (
-    <AnimatedView
-      entering={FadeInDown.delay(Math.min(index * 60, 400)).duration(400)}
-      style={styles.videoCard}
-    >
-      <TouchableOpacity activeOpacity={0.87} onPress={onPress} style={styles.videoCardInner}>
-        <View style={styles.videoThumbWrap}>
-          {thumb ? (
-            <Image source={{ uri: thumb }} style={styles.videoThumb} resizeMode="cover" />
-          ) : (
-            <LinearGradient
-              colors={['rgba(124,58,237,0.3)', 'rgba(16,185,129,0.2)']}
-              style={styles.videoThumbFallback}
-            >
-              <YoutubeIcon size={36} color="rgba(255,255,255,0.45)" />
-            </LinearGradient>
-          )}
-
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.72)']}
-            style={StyleSheet.absoluteFill}
-          />
-
-          <View style={styles.thumbPlayOverlay}>
-            <View style={styles.thumbPlayBtn}>
-              <PlayIcon size={18} color="#fff" />
+    // Outer: entering only — NO transform
+    <Animated.View entering={FadeInDown.delay(Math.min(index * 70, 450)).duration(420)}>
+      {/* Inner: transform only — NO entering */}
+      <Animated.View style={scaleStyle}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={onPress}
+          onPressIn={() => { pressScale.value = withSpring(0.95, { damping: 18, stiffness: 300 }); }}
+          onPressOut={() => { pressScale.value = withSpring(1, { damping: 18, stiffness: 300 }); }}
+          style={styles.videoCardInner}
+        >
+          <View style={styles.videoThumbWrap}>
+            {thumb
+              ? <Image
+                  source={typeof thumb === 'string' ? { uri: thumb } : (thumb as any)}
+                  style={styles.videoThumb}
+                  resizeMode="cover"
+                />
+              : <LinearGradient
+                  colors={['rgba(124,58,237,0.3)', 'rgba(16,185,129,0.2)']}
+                  style={styles.videoThumbFallback}
+                >
+                  {video.type === 'local'
+                    ? <FilmIcon size={36} color="rgba(255,255,255,0.4)" />
+                    : <YoutubeIcon size={36} color="rgba(255,255,255,0.4)" />}
+                </LinearGradient>}
+            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={StyleSheet.absoluteFill} />
+            <View style={styles.thumbPlayOverlay}>
+              <LinearGradient
+                colors={video.type === 'local'
+                  ? ['rgba(124,58,237,0.9)', 'rgba(16,185,129,0.9)']
+                  : ['rgba(239,68,68,0.9)', 'rgba(185,28,28,0.9)']}
+                style={styles.thumbPlayBtn}
+              >
+                <PlayIcon size={16} color="#fff" />
+              </LinearGradient>
             </View>
+            <View style={[styles.typeBadge, video.type === 'local' && styles.typeBadgeLocal]}>
+              {video.type === 'local'
+                ? <FilmIcon size={10} color="#fff" />
+                : <YoutubeIcon size={10} color="#fff" />}
+              <Text style={styles.typeBadgeText}>
+                {video.type === 'local' ? 'Lokal' : 'YouTube'}
+              </Text>
+            </View>
+            {/* Badge orientasi kecil di sudut kanan bawah thumbnail (hanya video lokal) */}
+            {video.type === 'local' && (
+              <View style={[
+                styles.orientationThumbBadge,
+                video.orientation === 'portrait' && styles.orientationThumbBadgePortrait,
+              ]}>
+                <Text style={styles.orientationThumbBadgeText}>
+                  {video.orientation === 'portrait' ? '↕' : '↔'}
+                </Text>
+              </View>
+            )}
           </View>
-
-          <View style={styles.ytBadgeCard}>
-            <YoutubeIcon size={11} color="#fff" />
-            <Text style={styles.ytBadgeText}>YouTube</Text>
+          <View style={styles.videoInfo}>
+            <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
+            {video.description
+              ? <Text style={styles.videoDesc} numberOfLines={2}>{video.description}</Text>
+              : null}
           </View>
-        </View>
-
-        <View style={styles.videoInfo}>
-          <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
-          {video.description ? (
-            <Text style={styles.videoDesc} numberOfLines={2}>{video.description}</Text>
-          ) : null}
-        </View>
-      </TouchableOpacity>
-    </AnimatedView>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
-// ─── FolderCard ────────────────────────────────────────────────────────────────
-
+// ─── FolderCard — FIX: entering on outer, transform on inner ─────────────────
 function FolderCard({
   category,
   count,
@@ -320,59 +634,78 @@ function FolderCard({
   index: number;
   onToggle: () => void;
 }) {
+  const pressScale = useSharedValue(1);
+  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: pressScale.value }] }));
+
   return (
-    <AnimatedView
-      entering={FadeInDown.delay(index * 60).duration(400)}
-      style={[styles.folderCard, isShown && styles.folderCardActive]}
+    // Outer: entering only — NO transform
+    <Animated.View
+      entering={FadeInDown.delay(index * 70).duration(420)}
+      style={{ width: FOLDER_W }}
     >
-      <TouchableOpacity activeOpacity={0.82} onPress={onToggle} style={styles.folderCardInner}>
-        <View style={styles.folderTopRow}>
-          <View style={[styles.folderIconWrap, isShown && styles.folderIconWrapActive]}>
-            {isShown ? (
-              <FolderOpenIcon size={22} color={Colors.secondary} />
-            ) : (
-              <FolderIcon size={22} color={Colors.mutedForeground} />
-            )}
+      {/* Inner: transform only — NO entering */}
+      <Animated.View style={scaleStyle}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={onToggle}
+          onPressIn={() => { pressScale.value = withSpring(0.95, { damping: 18, stiffness: 300 }); }}
+          onPressOut={() => { pressScale.value = withSpring(1, { damping: 18, stiffness: 300 }); }}
+          style={[styles.folderCard, isShown && styles.folderCardActive]}
+        >
+          {isShown && (
+            <LinearGradient
+              colors={['rgba(16,185,129,0.12)', 'rgba(124,58,237,0.06)']}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          <View style={styles.folderTopRow}>
+            <View style={[styles.folderIconWrap, isShown && styles.folderIconWrapActive]}>
+              {isShown
+                ? <FolderOpenIcon size={22} color={Colors.secondary} />
+                : <FolderIcon     size={22} color={Colors.mutedForeground} />}
+            </View>
+            <View style={[styles.folderBadge, isShown && styles.folderBadgeActive]}>
+              {isShown
+                ? <EyeOffIcon size={10} color={Colors.secondary} />
+                : <EyeIcon    size={10} color={Colors.mutedForeground} />}
+              <Text style={[styles.folderBadgeText, isShown && styles.folderBadgeTextActive]}>
+                {isShown ? 'Tutup' : 'Buka'}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.folderBadge, isShown && styles.folderBadgeActive]}>
-            {isShown ? (
-              <EyeOffIcon size={10} color={Colors.secondary} />
-            ) : (
-              <EyeIcon size={10} color={Colors.mutedForeground} />
-            )}
-            <Text style={[styles.folderBadgeText, isShown && styles.folderBadgeTextActive]}>
-              {isShown ? 'Hide' : 'Show'}
-            </Text>
+          <Text style={[styles.folderTitle, isShown && { color: Colors.foreground }]} numberOfLines={2}>
+            {category.title}
+          </Text>
+          <View style={styles.folderCountRow}>
+            <View style={[styles.folderCountDot, { backgroundColor: isShown ? Colors.secondary : Colors.mutedForeground }]} />
+            <Text style={[styles.folderCount, isShown && { color: Colors.secondary }]}>{count} video</Text>
           </View>
-        </View>
-        <Text style={styles.folderTitle} numberOfLines={2}>{category.title}</Text>
-        <Text style={styles.folderCount}>{count} video</Text>
-      </TouchableOpacity>
-    </AnimatedView>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
-// ─── Main Screen ───────────────────────────────────────────────────────────────
-
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function VideosScreen() {
-  const [shownIds, setShownIds] = useState<Set<string>>(new Set());
-  const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
+  const [shownIds,    setShownIds]    = useState<Set<string>>(new Set());
+  const [ytVideo,     setYtVideo]     = useState<VideoItem | null>(null);
+  const [localVideo,  setLocalVideo]  = useState<VideoItem | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   useFocusEffect(
     useCallback(() => {
       ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
       scrollRef.current?.scrollTo({ y: 0, animated: false });
-    }, [])
+    }, []),
   );
 
   const grouped = useMemo(
-    () =>
-      videoCategories.map((cat) => ({
-        category: cat,
-        items: videos.filter((v) => v.categoryId === cat.id),
-      })),
-    []
+    () => videoCategories.map((cat) => ({
+      category: cat,
+      items: videos.filter((v) => v.categoryId === cat.id),
+    })),
+    [],
   );
 
   const toggleFolder = (id: string) => {
@@ -385,36 +718,64 @@ export default function VideosScreen() {
   };
 
   const shownGroups = grouped.filter(({ category }) => shownIds.has(category.id));
+  const totalVideos = videos.length;
 
-  const handleClose = useCallback(() => {
-    setActiveVideo(null);
+  const handleVideoPress = (v: VideoItem) => {
+    if (v.type === 'local') setLocalVideo(v);
+    else setYtVideo(v);
+  };
+
+  const closeYt    = useCallback(() => setYtVideo(null), []);
+  const closeLocal = useCallback(async () => {
+    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    setLocalVideo(null);
   }, []);
 
   return (
     <View style={styles.container}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
 
-        {/* Header */}
+        {/* Header — FIX: ZoomIn on outer, no transform */}
         <View style={styles.headerBg}>
-          <AnimatedView entering={ZoomIn.duration(450)} style={styles.headerBadge}>
+          <Animated.View entering={ZoomIn.duration(450).springify()} style={styles.headerBadge}>
             <LinearGradient
-              colors={['rgba(124,58,237,0.2)', 'rgba(16,185,129,0.2)']}
+              colors={['rgba(239,68,68,0.2)', 'rgba(124,58,237,0.2)']}
               style={styles.headerBadgeGrad}
             >
-              <VideoIcon size={32} color={Colors.secondary} />
+              <VideoIcon size={34} color="#ef4444" />
             </LinearGradient>
-          </AnimatedView>
-          <AnimatedView entering={FadeInDown.delay(100).duration(450)}>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(100).duration(450)}>
             <Text style={styles.pageTitle}>
               <Text style={styles.pageTitlePlain}>Koleksi </Text>
-              <Text style={styles.pageTitleGradient}>Video</Text>
+              <Text style={styles.pageTitleAccent}>Video</Text>
             </Text>
-          </AnimatedView>
-          <AnimatedView entering={FadeInDown.delay(200).duration(450)}>
-            <Text style={styles.pageDesc}>
-              Pilih folder di bawah untuk menampilkan isinya.
-            </Text>
-          </AnimatedView>
+          </Animated.View>
+
+          <Animated.Text entering={FadeInDown.delay(200).duration(450)} style={styles.pageDesc}>
+            Pilih folder di bawah untuk menampilkan isinya.
+          </Animated.Text>
+
+          <Animated.View entering={FadeInDown.delay(280).duration(400)} style={styles.headerStats}>
+            <LinearGradient
+              colors={['rgba(239,68,68,0.1)', 'rgba(124,58,237,0.08)']}
+              style={styles.headerStatsInner}
+            >
+              <Text style={styles.headerStatNum}>{totalVideos}</Text>
+              <Text style={styles.headerStatLbl}>Total Video</Text>
+            </LinearGradient>
+            <View style={styles.headerStatDivider} />
+            <LinearGradient
+              colors={['rgba(124,58,237,0.1)', 'rgba(16,185,129,0.08)']}
+              style={styles.headerStatsInner}
+            >
+              <Text style={[styles.headerStatNum, { color: Colors.primary }]}>
+                {videoCategories.length}
+              </Text>
+              <Text style={styles.headerStatLbl}>Kategori</Text>
+            </LinearGradient>
+          </Animated.View>
         </View>
 
         {/* Folder Grid */}
@@ -433,29 +794,35 @@ export default function VideosScreen() {
 
         {/* Sections */}
         {shownGroups.length === 0 ? (
-          <AnimatedView entering={FadeIn.duration(350)} style={styles.emptyBox}>
+          <Animated.View entering={FadeIn.duration(400)} style={styles.emptyBox}>
+            <View style={styles.emptyIconWrap}>
+              <FolderIcon size={40} color={Colors.mutedForeground} />
+            </View>
+            <Text style={styles.emptyTitle}>Belum ada folder yang dibuka</Text>
             <Text style={styles.emptyText}>
-              Tidak ada folder yang ditampilkan.{'\n'}Klik salah satu folder di atas untuk melihat isinya.
+              Klik salah satu folder di atas untuk melihat isinya.
             </Text>
-          </AnimatedView>
+          </Animated.View>
         ) : (
           <View style={styles.sectionsWrap}>
             {shownGroups.map(({ category, items }) => (
-              <AnimatedView
+              <Animated.View
                 key={category.id}
-                entering={FadeInDown.duration(350)}
+                entering={FadeInDown.duration(380)}
                 style={styles.section}
               >
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionHeaderLeft}>
-                    <FolderOpenIcon size={22} color={Colors.secondary} />
+                    <View style={styles.sectionIconWrap}>
+                      <FolderOpenIcon size={20} color={Colors.secondary} />
+                    </View>
                     <View style={styles.sectionHeaderTexts}>
                       <Text style={styles.sectionTitle}>{category.title}</Text>
-                      {category.description ? (
-                        <Text style={styles.sectionDesc} numberOfLines={1}>
-                          {category.description}
-                        </Text>
-                      ) : null}
+                      {category.description
+                        ? <Text style={styles.sectionDesc} numberOfLines={1}>
+                            {category.description}
+                          </Text>
+                        : null}
                     </View>
                   </View>
                   <TouchableOpacity
@@ -464,27 +831,33 @@ export default function VideosScreen() {
                     activeOpacity={0.75}
                   >
                     <EyeOffIcon size={12} color={Colors.mutedForeground} />
-                    <Text style={styles.hideBtnText}>Sembunyikan</Text>
+                    <Text style={styles.hideBtnText}>Tutup</Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.sectionDivider} />
+                <LinearGradient
+                  colors={['rgba(16,185,129,0.2)', 'rgba(124,58,237,0.1)', 'transparent']}
+                  style={styles.sectionDivider}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                />
 
                 {items.length === 0 ? (
                   <Text style={styles.emptyText}>Belum ada video di folder ini.</Text>
                 ) : (
                   <View style={styles.videoGrid}>
                     {items.map((v, i) => (
-                      <VideoCard
-                        key={v.id}
-                        video={v}
-                        index={i}
-                        onPress={() => setActiveVideo(v)}
-                      />
+                      <View key={v.id} style={{ width: VIDEO_CARD_W }}>
+                        <VideoCard
+                          video={v}
+                          index={i}
+                          onPress={() => handleVideoPress(v)}
+                        />
+                      </View>
                     ))}
                   </View>
                 )}
-              </AnimatedView>
+              </Animated.View>
             ))}
           </View>
         )}
@@ -492,42 +865,47 @@ export default function VideosScreen() {
         <View style={{ height: 48 }} />
       </ScrollView>
 
-      <VideoPlayerModal video={activeVideo} onClose={handleClose} />
+      <YouTubeModal   video={ytVideo}    onClose={closeYt}    />
+      <LocalVideoModal video={localVideo} onClose={closeLocal} />
     </View>
   );
 }
 
-// ─── Styles ────────────────────────────────────────────────────────────────────
-
-const FOLDER_W = (SCREEN_W - Spacing.md * 2 - Spacing.sm) / 2;
+// ─── Constants & Styles ───────────────────────────────────────────────────────
+const FOLDER_W     = (SCREEN_W - Spacing.md * 2 - Spacing.sm) / 2;
 const VIDEO_CARD_W = (SCREEN_W - Spacing.md * 2 - Spacing.sm) / 2;
-const THUMB_H = (SCREEN_W - Spacing.md * 2) * (9 / 16);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
 
   // Header
   headerBg: { alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: Spacing.lg },
-  headerBadge: { marginBottom: Spacing.md, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(124,58,237,0.35)' },
-  headerBadgeGrad: { padding: 14 },
+  headerBadge: { marginBottom: Spacing.md, borderRadius: BorderRadius.xl, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(239,68,68,0.35)' },
+  headerBadgeGrad: { padding: 16 },
   pageTitle: { textAlign: 'center', marginBottom: 6 },
-  pageTitlePlain: { fontFamily: Typography.heading, fontSize: 30, color: Colors.foreground },
-  pageTitleGradient: { fontFamily: Typography.heading, fontSize: 30, color: Colors.secondary },
-  pageDesc: { fontFamily: Typography.body, fontSize: 14, color: Colors.mutedForeground, textAlign: 'center' },
+  pageTitlePlain: { fontFamily: Typography.heading, fontSize: 32, color: Colors.foreground },
+  pageTitleAccent: { fontFamily: Typography.heading, fontSize: 32, color: '#ef4444', textShadowColor: 'rgba(239,68,68,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 12 },
+  pageDesc: { fontFamily: Typography.body, fontSize: 14, color: Colors.mutedForeground, textAlign: 'center', marginBottom: Spacing.md },
+  headerStats: { flexDirection: 'row', borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder, width: '100%' },
+  headerStatsInner: { flex: 1, padding: Spacing.md, alignItems: 'center' },
+  headerStatNum: { fontFamily: Typography.heading, fontSize: 22, color: '#ef4444' },
+  headerStatLbl: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground, marginTop: 2 },
+  headerStatDivider: { width: 1, backgroundColor: Colors.border, marginVertical: Spacing.sm },
 
   // Folder grid
   folderGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.lg },
-  folderCard: { width: FOLDER_W, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', backgroundColor: 'rgba(255,255,255,0.03)', overflow: 'hidden' },
-  folderCardActive: { borderColor: 'rgba(16,185,129,0.40)', backgroundColor: 'rgba(16,185,129,0.08)' },
-  folderCardInner: { padding: Spacing.md },
+  folderCard: { width: '100%', borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', backgroundColor: 'rgba(255,255,255,0.03)', overflow: 'hidden', padding: Spacing.md },
+  folderCardActive: { borderColor: 'rgba(16,185,129,0.45)' },
   folderTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  folderIconWrap: { width: 40, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  folderIconWrap: { width: 44, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
   folderIconWrapActive: { backgroundColor: 'rgba(16,185,129,0.18)' },
-  folderBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: BorderRadius.full, paddingHorizontal: 7, paddingVertical: 3 },
+  folderBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: BorderRadius.full, paddingHorizontal: 7, paddingVertical: 4 },
   folderBadgeActive: { backgroundColor: 'rgba(16,185,129,0.15)' },
-  folderBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 10, color: Colors.mutedForeground },
+  folderBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: Colors.mutedForeground },
   folderBadgeTextActive: { color: Colors.secondary },
-  folderTitle: { fontFamily: Typography.bodySemiBold, fontSize: 13, color: Colors.foreground, marginBottom: 3 },
+  folderTitle: { fontFamily: Typography.bodySemiBold, fontSize: 13, color: Colors.mutedForeground, marginBottom: 6, lineHeight: 18 },
+  folderCountRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  folderCountDot: { width: 6, height: 6, borderRadius: 3 },
   folderCount: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground },
 
   // Sections
@@ -535,65 +913,103 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.sm },
   sectionHeaderLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, flex: 1 },
+  sectionIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(16,185,129,0.12)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   sectionHeaderTexts: { flex: 1 },
   sectionTitle: { fontFamily: Typography.heading, fontSize: 18, color: Colors.secondary },
   sectionDesc: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground, marginTop: 2 },
-  sectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 4 },
-  hideBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', borderRadius: BorderRadius.sm, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(255,255,255,0.03)', marginTop: 2 },
+  sectionDivider: { height: 2, borderRadius: 1, marginBottom: 4 },
+  hideBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', borderRadius: BorderRadius.sm, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.03)', marginTop: 2 },
   hideBtnText: { fontFamily: Typography.bodyMedium, fontSize: 11, color: Colors.mutedForeground },
 
   // Video grid
   videoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  videoCard: { width: VIDEO_CARD_W },
   videoCardInner: { borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(120,60,210,0.25)', backgroundColor: Colors.card },
   videoThumbWrap: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000', position: 'relative', overflow: 'hidden' },
   videoThumb: { width: '100%', height: '100%' },
   videoThumbFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   thumbPlayOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  thumbPlayBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(220,38,38,0.88)', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6, paddingLeft: 2 },
-  ytBadgeCard: { position: 'absolute', top: 6, left: 6, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
-  ytBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 10, color: '#fff' },
-  videoInfo: { padding: Spacing.sm + 4 },
-  videoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 13, color: Colors.foreground, lineHeight: 18 },
-  videoDesc: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground, marginTop: 4, lineHeight: 16 },
+  thumbPlayBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', paddingLeft: 2 },
+  typeBadge: { position: 'absolute', top: 6, left: 6, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(239,68,68,0.75)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
+  typeBadgeLocal: { backgroundColor: 'rgba(124,58,237,0.75)' },
+  typeBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: '#fff' },
+
+  // Badge orientasi kecil di thumbnail (hanya video lokal)
+  orientationThumbBadge: {
+    position: 'absolute', bottom: 6, right: 6,
+    backgroundColor: 'rgba(124,58,237,0.80)',
+    borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2,
+  },
+  orientationThumbBadgePortrait: { backgroundColor: 'rgba(16,185,129,0.80)' },
+  orientationThumbBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: '#fff' },
+
+  videoInfo: { padding: Spacing.sm + 2 },
+  videoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 12, color: Colors.foreground, lineHeight: 17, marginBottom: 4 },
+  videoDesc: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground, lineHeight: 16 },
 
   // Empty
-  emptyBox: { marginHorizontal: Spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed', borderRadius: BorderRadius.lg, paddingVertical: Spacing.xl, paddingHorizontal: Spacing.md, alignItems: 'center' },
-  emptyText: { fontFamily: Typography.body, fontSize: 13, color: Colors.mutedForeground, textAlign: 'center', lineHeight: 20, fontStyle: 'italic' },
+  emptyBox: { marginHorizontal: Spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed', borderRadius: BorderRadius.xl, paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.md, alignItems: 'center', gap: Spacing.sm },
+  emptyIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
+  emptyTitle: { fontFamily: Typography.heading, fontSize: 15, color: Colors.foreground, textAlign: 'center' },
+  emptyText: { fontFamily: Typography.body, fontSize: 13, color: Colors.mutedForeground, textAlign: 'center', lineHeight: 20 },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(4,6,20,0.90)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.md },
-  modalBox: { width: '100%', backgroundColor: Colors.card, borderRadius: BorderRadius.xl, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(120,60,210,0.30)', shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.6, shadowRadius: 32, elevation: 24 },
+  // Modal shared
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(2,4,18,0.92)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.md },
+  modalOverlayFS: { flex: 1, backgroundColor: '#000' },
+  modalBox: { width: '100%', backgroundColor: Colors.card, borderRadius: BorderRadius.xl + 4, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(124,58,237,0.25)' },
+  modalBoxFS: { flex: 1, width: '100%', backgroundColor: '#000', overflow: 'hidden' },
 
-  // Modal header
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', gap: Spacing.sm },
+  // Area video saat fullscreen: mengisi sisa ruang setelah header dan safe-area padding
+  videoAreaFS: { flex: 1, backgroundColor: '#000' },
+  webviewFS:   { flex: 1, backgroundColor: '#000' },
+  modalTopGrad: { position: 'absolute', top: 0, left: 0, right: 0, height: 100, zIndex: 0 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: Spacing.sm, zIndex: 1 },
+  modalHeaderFS: { backgroundColor: 'rgba(0,0,0,0.6)', borderBottomColor: 'rgba(255,255,255,0.1)' },
   modalTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  ytIconBadge: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(239,68,68,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  filmIconBadge: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(124,58,237,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   modalTitle: { fontFamily: Typography.bodySemiBold, fontSize: 14, color: Colors.foreground, flex: 1, lineHeight: 20 },
   modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  iconActionBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
 
-  // Thumbnail area (full-width, 16:9)
-  thumbArea: { width: '100%', height: THUMB_H, backgroundColor: '#000', position: 'relative', overflow: 'hidden' },
-  thumbImg: { width: '100%', height: '100%' },
-  thumbFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
-  thumbOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
-  playBtnCenter: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-  playBtnGrad: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', shadowColor: '#dc2626', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 10, paddingLeft: 4 },
-  ytBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  tapHint: { position: 'absolute', bottom: 10, left: 0, right: 0, alignItems: 'center' },
-  tapHintText: { fontFamily: Typography.body, fontSize: 11, color: 'rgba(255,255,255,0.65)', backgroundColor: 'rgba(0,0,0,0.50)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 },
+  // Badge orientasi di header modal
+  orientationBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(124,58,237,0.18)',
+    borderWidth: 1, borderColor: 'rgba(124,58,237,0.35)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  orientationBadgePortrait: {
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderColor: 'rgba(16,185,129,0.35)',
+  },
+  orientationBadgeText: {
+    fontFamily: Typography.bodyMedium, fontSize: 10,
+    color: Colors.mutedForeground,
+  },
 
-  // Modal info
   modalInfo: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-  modalInfoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 15, color: Colors.foreground, marginBottom: 4, lineHeight: 21 },
-  modalInfoDesc: { fontFamily: Typography.body, fontSize: 12, color: Colors.mutedForeground, lineHeight: 17, marginBottom: 8 },
+  modalInfoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 15, color: Colors.foreground, marginBottom: 4, lineHeight: 22 },
+  modalInfoDesc: { fontFamily: Typography.body, fontSize: 12, color: Colors.mutedForeground, lineHeight: 18, marginBottom: 8 },
   modalInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  modalInfoDotYt: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' },
+  modalInfoDotLocal: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary },
   modalInfoMeta: { fontFamily: Typography.body, fontSize: 12, color: Colors.mutedForeground },
-
-  // Action buttons
   actionRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm },
-  watchBtn: { flex: 1, borderRadius: BorderRadius.md, overflow: 'hidden' },
+  watchBtnWrap: { flex: 1, borderRadius: BorderRadius.md, overflow: 'hidden' },
   watchBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: Spacing.md },
   watchBtnText: { fontFamily: Typography.bodySemiBold, fontSize: 14, color: '#fff' },
   shareBtn: { borderRadius: BorderRadius.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 13, paddingHorizontal: Spacing.md, alignItems: 'center', justifyContent: 'center' },
   shareBtnText: { fontFamily: Typography.bodyMedium, fontSize: 13, color: Colors.mutedForeground },
+
+  // YouTube thumb area
+  thumbArea: { width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' },
+  thumbImg: { width: '100%', height: '100%' },
+  thumbFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  playBtnCenter: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  ytBadge: { position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.75)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  ytBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 11, color: '#fff' },
+  tapHint: { position: 'absolute', bottom: 10, left: 0, right: 0, alignItems: 'center' },
+  tapHintText: { fontFamily: Typography.body, fontSize: 11, color: 'rgba(255,255,255,0.65)', backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 },
 });
