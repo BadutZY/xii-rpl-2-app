@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Text, TextStyle, View } from 'react-native';
-import { Colors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface GradientTextProps {
   children: React.ReactNode;
@@ -15,7 +15,8 @@ interface GradientTextProps {
 }
 
 export const GradientText = ({ children, style, variant = 'primary' }: GradientTextProps) => {
-  const color = variant === 'teacher' ? Colors.orange : Colors.primary;
+  const { colors } = useTheme();
+  const color = variant === 'teacher' ? colors.orange : colors.primary;
   return (
     <Text style={[style, { color }]}>{children}</Text>
   );

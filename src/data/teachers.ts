@@ -13,14 +13,20 @@ export interface Teacher {
 export const teachersData: Teacher[] = [
   {
     id: 1,
-    name: 'Bu Dian',
-    fullName: 'Dian Hardianti, S.Kom.',
+    name: 'Bu Yeni',
+    fullName: 'Yeni Yuliawati, S.Pd,Gr.',
     age: null,
     birthdate: '-',
-    subject: 'Basis Data',
-    role: 'Wali Kelas XI RPL 2',
+    subject: 'Bahasa Indonesia',
+    role: 'Wali Kelas XII RPL 2',
     socials: {
-      instagram: 'https://www.instagram.com/dianadithia/',
+      instagram: '-',
+      youtube: '-',
+      github: '-',
+      twitter: '-',
+      linkedin: '-',
+      tiktok: '-',
+      website: '-',
     },
   },
 ];

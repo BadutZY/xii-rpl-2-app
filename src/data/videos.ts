@@ -102,7 +102,7 @@ export const videoCategories: VideoCategory[] = [
   {
     id: 'vlogindo',
     title: 'Vlog Bahasa Indonesia',
-    description: 'Momen seru dan kegiatan harian XI RPL 2.',
+    description: 'Momen seru dan kegiatan harian XII RPL 2.',
   },
   {
     id: 'jepang',
@@ -112,12 +112,12 @@ export const videoCategories: VideoCategory[] = [
   {
     id: 'drama',
     title: 'Drama Pentas Seni',
-    description: 'Pentas Seni Drama yang menampilkan bakat akting siswa-siswi XI RPL 2.',
+    description: 'Pentas Seni Drama yang menampilkan bakat akting siswa-siswi XII RPL 2.',
   },
   {
     id: 'kera',
     title: 'Kebun Raya',
-    description: 'siswa-siswi XI RPL 2 berkunjung ke Kebun Raya.',
+    description: 'siswa-siswi XII RPL 2 berkunjung ke Kebun Raya.',
   },
 ];
 

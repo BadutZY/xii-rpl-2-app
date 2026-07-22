@@ -83,7 +83,8 @@ import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Typography, BorderRadius, Spacing } from '../../src/constants/theme';
+import { Typography, BorderRadius, Spacing, type ThemeColors } from '../../src/constants/theme';
+import { useTheme } from '../../src/context/ThemeContext';
 import {
   videos,
   videoCategories,
@@ -170,6 +171,9 @@ function LocalVideoModal({
   video: VideoItem | null;
   onClose: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [isFS,  setIsFS]  = useState(false);
   const overlayOp = useSharedValue(0);
   const boxTy     = useSharedValue(60);
@@ -245,8 +249,8 @@ function LocalVideoModal({
     video::-webkit-media-controls { display: flex !important; }
     video::-webkit-media-controls-panel { background: linear-gradient(transparent, rgba(0,0,0,0.85)); }
     video::-webkit-media-controls-play-button { filter: brightness(2); }
-    video::-webkit-media-controls-timeline { accent-color: #7c3aed; }
-    video::-webkit-media-controls-volume-slider { accent-color: #10b981; }
+    video::-webkit-media-controls-timeline { accent-color: #242220; }
+    video::-webkit-media-controls-volume-slider { accent-color: #b8712f; }
   </style>
 </head>
 <body>
@@ -314,7 +318,7 @@ function LocalVideoModal({
           {/* Gradient glow (hanya mode normal) */}
           {!isFS && (
             <LinearGradient
-              colors={['rgba(124,58,237,0.18)', 'rgba(16,185,129,0.10)', 'transparent']}
+              colors={['rgba(36,34,32,0.18)', 'rgba(184,113,47,0.10)', 'transparent']}
               style={styles.modalTopGrad}
             />
           )}
@@ -323,7 +327,7 @@ function LocalVideoModal({
           <View style={[styles.modalHeader, isFS && styles.modalHeaderFS]}>
             <View style={styles.modalTitleWrap}>
               <View style={styles.filmIconBadge}>
-                <FilmIcon size={15} color={Colors.primary} />
+                <FilmIcon size={15} color={colors.primary} />
               </View>
               <Text style={[styles.modalTitle, isFS && { flex: 1 }]} numberOfLines={1}>
                 {video.title}
@@ -343,11 +347,11 @@ function LocalVideoModal({
               )}
               <TouchableOpacity onPress={toggleFS} style={styles.iconActionBtn} hitSlop={8}>
                 {isFS
-                  ? <MinimizeIcon size={18} color={Colors.foreground} />
-                  : <MaximizeIcon size={18} color={Colors.foreground} />}
+                  ? <MinimizeIcon size={18} color={colors.foreground} />
+                  : <MaximizeIcon size={18} color={colors.foreground} />}
               </TouchableOpacity>
               <TouchableOpacity onPress={handleClose} style={styles.modalCloseBtn} hitSlop={8}>
-                <XIcon size={17} color={Colors.foreground} />
+                <XIcon size={17} color={colors.foreground} />
               </TouchableOpacity>
             </View>
           </View>
@@ -384,7 +388,7 @@ function LocalVideoModal({
               ) : null}
               <View style={styles.modalInfoRow}>
                 <View style={styles.modalInfoDotLocal} />
-                <Text style={styles.modalInfoMeta}>XI RPL 2 · SMK INFOKOM · Video Lokal</Text>
+                <Text style={styles.modalInfoMeta}>XII RPL 2 · SMK INFOKOM · Video Lokal</Text>
               </View>
             </View>
           )}
@@ -402,6 +406,9 @@ function YouTubeModal({
   video: VideoItem | null;
   onClose: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const overlayOp = useSharedValue(0);
   const boxTy     = useSharedValue(60);
 
@@ -454,7 +461,7 @@ function YouTubeModal({
         {/* Outer: slide-up — NO entering */}
         <Animated.View style={[styles.modalBox, boxStyle]}>
           <LinearGradient
-            colors={['rgba(239,68,68,0.18)', 'rgba(124,58,237,0.10)', 'transparent']}
+            colors={['rgba(239,68,68,0.18)', 'rgba(36,34,32,0.10)', 'transparent']}
             style={styles.modalTopGrad}
           />
 
@@ -466,7 +473,7 @@ function YouTubeModal({
               <Text style={styles.modalTitle} numberOfLines={2}>{video.title}</Text>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.modalCloseBtn} hitSlop={8}>
-              <XIcon size={17} color={Colors.foreground} />
+              <XIcon size={17} color={colors.foreground} />
             </TouchableOpacity>
           </View>
 
@@ -479,7 +486,7 @@ function YouTubeModal({
                   resizeMode="cover"
                 />
               : <LinearGradient
-                  colors={['rgba(124,58,237,0.35)', 'rgba(16,185,129,0.25)']}
+                  colors={['rgba(36,34,32,0.35)', 'rgba(184,113,47,0.25)']}
                   style={styles.thumbFallback}
                 >
                   <YoutubeIcon size={48} color="rgba(255,255,255,0.3)" />
@@ -505,7 +512,7 @@ function YouTubeModal({
             {video.description ? <Text style={styles.modalInfoDesc}>{video.description}</Text> : null}
             <View style={styles.modalInfoRow}>
               <View style={styles.modalInfoDotYt} />
-              <Text style={styles.modalInfoMeta}>XI RPL 2 · SMK INFOKOM</Text>
+              <Text style={styles.modalInfoMeta}>XII RPL 2 · SMK INFOKOM</Text>
             </View>
           </View>
 
@@ -545,6 +552,9 @@ function VideoCard({
   index: number;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const thumb      = video.thumbnail
     ?? (video.type === 'youtube' && typeof video.src === 'string' ? getYouTubeThumbnail(video.src) : null);
   const pressScale = useSharedValue(1);
@@ -570,7 +580,7 @@ function VideoCard({
                   resizeMode="cover"
                 />
               : <LinearGradient
-                  colors={['rgba(124,58,237,0.3)', 'rgba(16,185,129,0.2)']}
+                  colors={['rgba(36,34,32,0.3)', 'rgba(184,113,47,0.2)']}
                   style={styles.videoThumbFallback}
                 >
                   {video.type === 'local'
@@ -581,7 +591,7 @@ function VideoCard({
             <View style={styles.thumbPlayOverlay}>
               <LinearGradient
                 colors={video.type === 'local'
-                  ? ['rgba(124,58,237,0.9)', 'rgba(16,185,129,0.9)']
+                  ? ['rgba(36,34,32,0.9)', 'rgba(184,113,47,0.9)']
                   : ['rgba(239,68,68,0.9)', 'rgba(185,28,28,0.9)']}
                 style={styles.thumbPlayBtn}
               >
@@ -634,6 +644,9 @@ function FolderCard({
   index: number;
   onToggle: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const pressScale = useSharedValue(1);
   const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: pressScale.value }] }));
 
@@ -654,31 +667,31 @@ function FolderCard({
         >
           {isShown && (
             <LinearGradient
-              colors={['rgba(16,185,129,0.12)', 'rgba(124,58,237,0.06)']}
+              colors={['rgba(184,113,47,0.12)', 'rgba(36,34,32,0.06)']}
               style={StyleSheet.absoluteFill}
             />
           )}
           <View style={styles.folderTopRow}>
             <View style={[styles.folderIconWrap, isShown && styles.folderIconWrapActive]}>
               {isShown
-                ? <FolderOpenIcon size={22} color={Colors.secondary} />
-                : <FolderIcon     size={22} color={Colors.mutedForeground} />}
+                ? <FolderOpenIcon size={22} color={colors.secondary} />
+                : <FolderIcon     size={22} color={colors.mutedForeground} />}
             </View>
             <View style={[styles.folderBadge, isShown && styles.folderBadgeActive]}>
               {isShown
-                ? <EyeOffIcon size={10} color={Colors.secondary} />
-                : <EyeIcon    size={10} color={Colors.mutedForeground} />}
+                ? <EyeOffIcon size={10} color={colors.secondary} />
+                : <EyeIcon    size={10} color={colors.mutedForeground} />}
               <Text style={[styles.folderBadgeText, isShown && styles.folderBadgeTextActive]}>
                 {isShown ? 'Tutup' : 'Buka'}
               </Text>
             </View>
           </View>
-          <Text style={[styles.folderTitle, isShown && { color: Colors.foreground }]} numberOfLines={2}>
+          <Text style={[styles.folderTitle, isShown && { color: colors.foreground }]} numberOfLines={2}>
             {category.title}
           </Text>
           <View style={styles.folderCountRow}>
-            <View style={[styles.folderCountDot, { backgroundColor: isShown ? Colors.secondary : Colors.mutedForeground }]} />
-            <Text style={[styles.folderCount, isShown && { color: Colors.secondary }]}>{count} video</Text>
+            <View style={[styles.folderCountDot, { backgroundColor: isShown ? colors.secondary : colors.mutedForeground }]} />
+            <Text style={[styles.folderCount, isShown && { color: colors.secondary }]}>{count} video</Text>
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -688,6 +701,9 @@ function FolderCard({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function VideosScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [shownIds,    setShownIds]    = useState<Set<string>>(new Set());
   const [ytVideo,     setYtVideo]     = useState<VideoItem | null>(null);
   const [localVideo,  setLocalVideo]  = useState<VideoItem | null>(null);
@@ -739,7 +755,7 @@ export default function VideosScreen() {
         <View style={styles.headerBg}>
           <Animated.View entering={ZoomIn.duration(450).springify()} style={styles.headerBadge}>
             <LinearGradient
-              colors={['rgba(239,68,68,0.2)', 'rgba(124,58,237,0.2)']}
+              colors={['rgba(239,68,68,0.2)', 'rgba(36,34,32,0.2)']}
               style={styles.headerBadgeGrad}
             >
               <VideoIcon size={34} color="#ef4444" />
@@ -759,7 +775,7 @@ export default function VideosScreen() {
 
           <Animated.View entering={FadeInDown.delay(280).duration(400)} style={styles.headerStats}>
             <LinearGradient
-              colors={['rgba(239,68,68,0.1)', 'rgba(124,58,237,0.08)']}
+              colors={['rgba(239,68,68,0.1)', 'rgba(36,34,32,0.08)']}
               style={styles.headerStatsInner}
             >
               <Text style={styles.headerStatNum}>{totalVideos}</Text>
@@ -767,10 +783,10 @@ export default function VideosScreen() {
             </LinearGradient>
             <View style={styles.headerStatDivider} />
             <LinearGradient
-              colors={['rgba(124,58,237,0.1)', 'rgba(16,185,129,0.08)']}
+              colors={['rgba(36,34,32,0.1)', 'rgba(184,113,47,0.08)']}
               style={styles.headerStatsInner}
             >
-              <Text style={[styles.headerStatNum, { color: Colors.primary }]}>
+              <Text style={[styles.headerStatNum, { color: colors.primary }]}>
                 {videoCategories.length}
               </Text>
               <Text style={styles.headerStatLbl}>Kategori</Text>
@@ -796,7 +812,7 @@ export default function VideosScreen() {
         {shownGroups.length === 0 ? (
           <Animated.View entering={FadeIn.duration(400)} style={styles.emptyBox}>
             <View style={styles.emptyIconWrap}>
-              <FolderIcon size={40} color={Colors.mutedForeground} />
+              <FolderIcon size={40} color={colors.mutedForeground} />
             </View>
             <Text style={styles.emptyTitle}>Belum ada folder yang dibuka</Text>
             <Text style={styles.emptyText}>
@@ -814,7 +830,7 @@ export default function VideosScreen() {
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionHeaderLeft}>
                     <View style={styles.sectionIconWrap}>
-                      <FolderOpenIcon size={20} color={Colors.secondary} />
+                      <FolderOpenIcon size={20} color={colors.secondary} />
                     </View>
                     <View style={styles.sectionHeaderTexts}>
                       <Text style={styles.sectionTitle}>{category.title}</Text>
@@ -830,13 +846,13 @@ export default function VideosScreen() {
                     style={styles.hideBtn}
                     activeOpacity={0.75}
                   >
-                    <EyeOffIcon size={12} color={Colors.mutedForeground} />
+                    <EyeOffIcon size={12} color={colors.mutedForeground} />
                     <Text style={styles.hideBtnText}>Tutup</Text>
                   </TouchableOpacity>
                 </View>
 
                 <LinearGradient
-                  colors={['rgba(16,185,129,0.2)', 'rgba(124,58,237,0.1)', 'transparent']}
+                  colors={['rgba(184,113,47,0.2)', 'rgba(36,34,32,0.1)', 'transparent']}
                   style={styles.sectionDivider}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -875,87 +891,87 @@ export default function VideosScreen() {
 const FOLDER_W     = (SCREEN_W - Spacing.md * 2 - Spacing.sm) / 2;
 const VIDEO_CARD_W = (SCREEN_W - Spacing.md * 2 - Spacing.sm) / 2;
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
 
   // Header
   headerBg: { alignItems: 'center', paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: Spacing.lg },
   headerBadge: { marginBottom: Spacing.md, borderRadius: BorderRadius.xl, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(239,68,68,0.35)' },
   headerBadgeGrad: { padding: 16 },
   pageTitle: { textAlign: 'center', marginBottom: 6 },
-  pageTitlePlain: { fontFamily: Typography.heading, fontSize: 32, color: Colors.foreground },
+  pageTitlePlain: { fontFamily: Typography.heading, fontSize: 32, color: colors.foreground },
   pageTitleAccent: { fontFamily: Typography.heading, fontSize: 32, color: '#ef4444', textShadowColor: 'rgba(239,68,68,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 12 },
-  pageDesc: { fontFamily: Typography.body, fontSize: 14, color: Colors.mutedForeground, textAlign: 'center', marginBottom: Spacing.md },
-  headerStats: { flexDirection: 'row', borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.cardBorder, width: '100%' },
+  pageDesc: { fontFamily: Typography.body, fontSize: 14, color: colors.mutedForeground, textAlign: 'center', marginBottom: Spacing.md },
+  headerStats: { flexDirection: 'row', borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.cardBorder, width: '100%' },
   headerStatsInner: { flex: 1, padding: Spacing.md, alignItems: 'center' },
   headerStatNum: { fontFamily: Typography.heading, fontSize: 22, color: '#ef4444' },
-  headerStatLbl: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground, marginTop: 2 },
-  headerStatDivider: { width: 1, backgroundColor: Colors.border, marginVertical: Spacing.sm },
+  headerStatLbl: { fontFamily: Typography.body, fontSize: 11, color: colors.mutedForeground, marginTop: 2 },
+  headerStatDivider: { width: 1, backgroundColor: colors.border, marginVertical: Spacing.sm },
 
   // Folder grid
   folderGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.lg },
   folderCard: { width: '100%', borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', backgroundColor: 'rgba(255,255,255,0.03)', overflow: 'hidden', padding: Spacing.md },
-  folderCardActive: { borderColor: 'rgba(16,185,129,0.45)' },
+  folderCardActive: { borderColor: 'rgba(184,113,47,0.45)' },
   folderTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   folderIconWrap: { width: 44, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-  folderIconWrapActive: { backgroundColor: 'rgba(16,185,129,0.18)' },
+  folderIconWrapActive: { backgroundColor: 'rgba(184,113,47,0.18)' },
   folderBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: BorderRadius.full, paddingHorizontal: 7, paddingVertical: 4 },
-  folderBadgeActive: { backgroundColor: 'rgba(16,185,129,0.15)' },
-  folderBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: Colors.mutedForeground },
-  folderBadgeTextActive: { color: Colors.secondary },
-  folderTitle: { fontFamily: Typography.bodySemiBold, fontSize: 13, color: Colors.mutedForeground, marginBottom: 6, lineHeight: 18 },
+  folderBadgeActive: { backgroundColor: 'rgba(184,113,47,0.15)' },
+  folderBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: colors.mutedForeground },
+  folderBadgeTextActive: { color: colors.secondary },
+  folderTitle: { fontFamily: Typography.bodySemiBold, fontSize: 13, color: colors.mutedForeground, marginBottom: 6, lineHeight: 18 },
   folderCountRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   folderCountDot: { width: 6, height: 6, borderRadius: 3 },
-  folderCount: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground },
+  folderCount: { fontFamily: Typography.body, fontSize: 11, color: colors.mutedForeground },
 
   // Sections
   sectionsWrap: { paddingHorizontal: Spacing.md, gap: Spacing.xl },
   section: { gap: Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.sm },
   sectionHeaderLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, flex: 1 },
-  sectionIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(16,185,129,0.12)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  sectionIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(184,113,47,0.12)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   sectionHeaderTexts: { flex: 1 },
-  sectionTitle: { fontFamily: Typography.heading, fontSize: 18, color: Colors.secondary },
-  sectionDesc: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground, marginTop: 2 },
+  sectionTitle: { fontFamily: Typography.heading, fontSize: 18, color: colors.secondary },
+  sectionDesc: { fontFamily: Typography.body, fontSize: 11, color: colors.mutedForeground, marginTop: 2 },
   sectionDivider: { height: 2, borderRadius: 1, marginBottom: 4 },
   hideBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', borderRadius: BorderRadius.sm, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.03)', marginTop: 2 },
-  hideBtnText: { fontFamily: Typography.bodyMedium, fontSize: 11, color: Colors.mutedForeground },
+  hideBtnText: { fontFamily: Typography.bodyMedium, fontSize: 11, color: colors.mutedForeground },
 
   // Video grid
   videoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  videoCardInner: { borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(120,60,210,0.25)', backgroundColor: Colors.card },
+  videoCardInner: { borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(120,60,210,0.25)', backgroundColor: colors.card },
   videoThumbWrap: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000', position: 'relative', overflow: 'hidden' },
   videoThumb: { width: '100%', height: '100%' },
   videoThumbFallback: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   thumbPlayOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   thumbPlayBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', paddingLeft: 2 },
   typeBadge: { position: 'absolute', top: 6, left: 6, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(239,68,68,0.75)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
-  typeBadgeLocal: { backgroundColor: 'rgba(124,58,237,0.75)' },
+  typeBadgeLocal: { backgroundColor: 'rgba(36,34,32,0.75)' },
   typeBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: '#fff' },
 
   // Badge orientasi kecil di thumbnail (hanya video lokal)
   orientationThumbBadge: {
     position: 'absolute', bottom: 6, right: 6,
-    backgroundColor: 'rgba(124,58,237,0.80)',
+    backgroundColor: 'rgba(36,34,32,0.80)',
     borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2,
   },
-  orientationThumbBadgePortrait: { backgroundColor: 'rgba(16,185,129,0.80)' },
+  orientationThumbBadgePortrait: { backgroundColor: 'rgba(184,113,47,0.80)' },
   orientationThumbBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: '#fff' },
 
   videoInfo: { padding: Spacing.sm + 2 },
-  videoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 12, color: Colors.foreground, lineHeight: 17, marginBottom: 4 },
-  videoDesc: { fontFamily: Typography.body, fontSize: 11, color: Colors.mutedForeground, lineHeight: 16 },
+  videoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 12, color: colors.foreground, lineHeight: 17, marginBottom: 4 },
+  videoDesc: { fontFamily: Typography.body, fontSize: 11, color: colors.mutedForeground, lineHeight: 16 },
 
   // Empty
   emptyBox: { marginHorizontal: Spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed', borderRadius: BorderRadius.xl, paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.md, alignItems: 'center', gap: Spacing.sm },
   emptyIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
-  emptyTitle: { fontFamily: Typography.heading, fontSize: 15, color: Colors.foreground, textAlign: 'center' },
-  emptyText: { fontFamily: Typography.body, fontSize: 13, color: Colors.mutedForeground, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontFamily: Typography.heading, fontSize: 15, color: colors.foreground, textAlign: 'center' },
+  emptyText: { fontFamily: Typography.body, fontSize: 13, color: colors.mutedForeground, textAlign: 'center', lineHeight: 20 },
 
   // Modal shared
   modalOverlay: { flex: 1, backgroundColor: 'rgba(2,4,18,0.92)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.md },
   modalOverlayFS: { flex: 1, backgroundColor: '#000' },
-  modalBox: { width: '100%', backgroundColor: Colors.card, borderRadius: BorderRadius.xl + 4, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(124,58,237,0.25)' },
+  modalBox: { width: '100%', backgroundColor: colors.card, borderRadius: BorderRadius.xl + 4, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(36,34,32,0.25)' },
   modalBoxFS: { flex: 1, width: '100%', backgroundColor: '#000', overflow: 'hidden' },
 
   // Area video saat fullscreen: mengisi sisa ruang setelah header dan safe-area padding
@@ -966,8 +982,8 @@ const styles = StyleSheet.create({
   modalHeaderFS: { backgroundColor: 'rgba(0,0,0,0.6)', borderBottomColor: 'rgba(255,255,255,0.1)' },
   modalTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   ytIconBadge: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(239,68,68,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  filmIconBadge: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(124,58,237,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  modalTitle: { fontFamily: Typography.bodySemiBold, fontSize: 14, color: Colors.foreground, flex: 1, lineHeight: 20 },
+  filmIconBadge: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(36,34,32,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  modalTitle: { fontFamily: Typography.bodySemiBold, fontSize: 14, color: colors.foreground, flex: 1, lineHeight: 20 },
   modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   iconActionBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
@@ -975,33 +991,33 @@ const styles = StyleSheet.create({
   // Badge orientasi di header modal
   orientationBadge: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(124,58,237,0.18)',
-    borderWidth: 1, borderColor: 'rgba(124,58,237,0.35)',
+    backgroundColor: 'rgba(36,34,32,0.18)',
+    borderWidth: 1, borderColor: 'rgba(36,34,32,0.35)',
     borderRadius: BorderRadius.full,
     paddingHorizontal: 8, paddingVertical: 4,
   },
   orientationBadgePortrait: {
-    backgroundColor: 'rgba(16,185,129,0.18)',
-    borderColor: 'rgba(16,185,129,0.35)',
+    backgroundColor: 'rgba(184,113,47,0.18)',
+    borderColor: 'rgba(184,113,47,0.35)',
   },
   orientationBadgeText: {
     fontFamily: Typography.bodyMedium, fontSize: 10,
-    color: Colors.mutedForeground,
+    color: colors.mutedForeground,
   },
 
   modalInfo: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-  modalInfoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 15, color: Colors.foreground, marginBottom: 4, lineHeight: 22 },
-  modalInfoDesc: { fontFamily: Typography.body, fontSize: 12, color: Colors.mutedForeground, lineHeight: 18, marginBottom: 8 },
+  modalInfoTitle: { fontFamily: Typography.bodySemiBold, fontSize: 15, color: colors.foreground, marginBottom: 4, lineHeight: 22 },
+  modalInfoDesc: { fontFamily: Typography.body, fontSize: 12, color: colors.mutedForeground, lineHeight: 18, marginBottom: 8 },
   modalInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   modalInfoDotYt: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' },
-  modalInfoDotLocal: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary },
-  modalInfoMeta: { fontFamily: Typography.body, fontSize: 12, color: Colors.mutedForeground },
+  modalInfoDotLocal: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
+  modalInfoMeta: { fontFamily: Typography.body, fontSize: 12, color: colors.mutedForeground },
   actionRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm },
   watchBtnWrap: { flex: 1, borderRadius: BorderRadius.md, overflow: 'hidden' },
   watchBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: Spacing.md },
   watchBtnText: { fontFamily: Typography.bodySemiBold, fontSize: 14, color: '#fff' },
   shareBtn: { borderRadius: BorderRadius.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 13, paddingHorizontal: Spacing.md, alignItems: 'center', justifyContent: 'center' },
-  shareBtnText: { fontFamily: Typography.bodyMedium, fontSize: 13, color: Colors.mutedForeground },
+  shareBtnText: { fontFamily: Typography.bodyMedium, fontSize: 13, color: colors.mutedForeground },
 
   // YouTube thumb area
   thumbArea: { width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' },

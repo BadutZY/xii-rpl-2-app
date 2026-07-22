@@ -11,43 +11,34 @@ import {
 } from 'react-native';
 import Animated, {
   FadeInDown,
-  ZoomIn,
+  FadeIn,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Typography, BorderRadius, Spacing } from '../../src/constants/theme';
+import { Typography, BorderRadius, Spacing, type ThemeColors } from '../../src/constants/theme';
+import { useTheme } from '../../src/context/ThemeContext';
 import { studentsData, type Student } from '../../src/data/students';
 import { teachersData, type Teacher } from '../../src/data/teachers';
 import { StudentModal } from '../../src/components/StudentModal';
 import { TeacherModal } from '../../src/components/TeacherModal';
-import { UsersIcon, GraduationCapIcon, SearchIcon, PersonIcon } from '../../src/components/Icons';
+import { UsersIcon, GraduationCapIcon, SearchIcon, PersonIcon, XIcon } from '../../src/components/Icons';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_W = (SCREEN_W - Spacing.md * 2 - Spacing.sm) / 2;
+const CARD_GAP = Spacing.sm;
+const CARD_W = (SCREEN_W - Spacing.md * 2 - CARD_GAP * 2) / 3;
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
-// Pressable card with spring scale
-function PressableCard({
-  onPress,
-  children,
-  style,
-}: {
-  onPress: () => void;
-  children: React.ReactNode;
-  style?: any;
-}) {
+function PressableCard({ onPress, children, style }: { onPress: () => void; children: React.ReactNode; style?: any }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
   return (
     <Animated.View style={[animStyle, style]}>
       <TouchableOpacity
         onPress={onPress}
-        onPressIn={() => { scale.value = withSpring(0.95, { damping: 18, stiffness: 300 }); }}
+        onPressIn={() => { scale.value = withSpring(0.96, { damping: 18, stiffness: 300 }); }}
         onPressOut={() => { scale.value = withSpring(1, { damping: 18, stiffness: 300 }); }}
         activeOpacity={1}
       >
@@ -58,8 +49,13 @@ function PressableCard({
 }
 
 export default function StudentsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   useFocusEffect(
@@ -67,13 +63,22 @@ export default function StudentsScreen() {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     }, [])
   );
-  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+
+  const roles = useMemo(() => {
+    const set = new Set<string>();
+    studentsData.forEach((s) => {
+      const p = (s.position || '').trim();
+      if (p && p !== '-') set.add(p);
+    });
+    return ['all', ...Array.from(set)];
+  }, []);
 
   const filtered = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    if (!term) return studentsData;
     const isNumeric = /^\d+$/.test(term);
     return studentsData.filter((s) => {
+      if (roleFilter !== 'all' && s.position !== roleFilter) return false;
+      if (!term) return true;
       const noMatch = isNumeric ? s.no === term : s.no.toLowerCase().includes(term);
       return (
         s.name.toLowerCase().includes(term) ||
@@ -82,176 +87,182 @@ export default function StudentsScreen() {
         noMatch
       );
     });
-  }, [searchTerm]);
+  }, [searchTerm, roleFilter]);
 
   return (
     <View style={styles.container}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
-          <AnimatedView entering={ZoomIn.duration(450).springify()} style={styles.headerBadgeWrap}>
-            <LinearGradient
-              colors={['rgba(124,58,237,0.18)', 'rgba(16,185,129,0.18)']}
-              style={styles.headerBadgeGrad}
-            >
-              <UsersIcon size={34} color={Colors.primary} />
-            </LinearGradient>
-          </AnimatedView>
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.eyebrow}>
+            <UsersIcon size={11} color={colors.mutedForeground} />
+            <Text style={styles.eyebrowText}>Anggota kelas</Text>
+          </Animated.View>
 
-          <AnimatedView entering={FadeInDown.delay(100).duration(450)}>
-            <Text style={styles.pageTitle}>
-              Daftar Murid{'\n'}
-              <Text style={{ color: Colors.primary }}>XI RPL 2</Text>
-            </Text>
-          </AnimatedView>
+          <Animated.Text entering={FadeInDown.delay(80).duration(400)} style={styles.pageTitle}>
+            Murid & wali <Text style={styles.pageTitleItalic}>XII RPL 2</Text>.
+          </Animated.Text>
 
-          <AnimatedView entering={FadeInDown.delay(200).duration(450)}>
-            <Text style={styles.pageDesc}>
-              Kenali para calon developer masa depan dari kelas XI RPL 2 SMK INFOKOM.
-            </Text>
-          </AnimatedView>
+          <Animated.Text entering={FadeInDown.delay(150).duration(400)} style={styles.pageDesc}>
+            Kenali (mungkin) calon developer masa depan dari kelas XII RPL 2 SMK INFOKOM
+            beserta wali kelas yang membimbing di balik layar.
+          </Animated.Text>
 
-          {/* Stats strip */}
-          <AnimatedView entering={FadeInDown.delay(300).duration(400)} style={styles.statsStrip}>
-            <LinearGradient colors={['rgba(124,58,237,0.12)', 'rgba(16,185,129,0.08)']} style={styles.statsStripInner}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNum}>{studentsData.length}</Text>
-                <Text style={styles.statLbl}>Siswa</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: Colors.orange }]}>{teachersData.length}</Text>
-                <Text style={styles.statLbl}>Wali Kelas</Text>
-              </View>
-            </LinearGradient>
-          </AnimatedView>
+          <Animated.View entering={FadeInDown.delay(220).duration(400)} style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Murid</Text>
+              <Text style={styles.statValue}>{studentsData.length.toString().padStart(2, '0')}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Wali kelas</Text>
+              <Text style={styles.statValue}>{teachersData.length.toString().padStart(2, '0')}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Peran khusus</Text>
+              <Text style={styles.statValue}>{(roles.length - 1).toString().padStart(2, '0')}</Text>
+            </View>
+          </Animated.View>
         </View>
 
         {/* Teacher Section */}
         <View style={styles.teacherSection}>
-          <AnimatedView entering={FadeInDown.delay(150).duration(400)} style={styles.teacherHeaderRow}>
-            <View style={styles.teacherHeaderLeft}>
-              <View style={styles.teacherIconWrap}>
-                <GraduationCapIcon size={20} color="#f97316" />
-              </View>
-              <Text style={styles.teacherSectionTitle}>Wali Kelas</Text>
-            </View>
-          </AnimatedView>
-          <Text style={styles.teacherSectionDesc}>Wali kelas XI RPL 2.</Text>
+          <View style={styles.eyebrow}>
+            <GraduationCapIcon size={11} color={colors.mutedForeground} />
+            <Text style={styles.eyebrowText}>Wali kelas</Text>
+          </View>
+          <Text style={styles.subSectionTitle}>Yang membimbing di balik layar.</Text>
 
-          {teachersData.map((teacher, i) => (
-            <AnimatedView key={teacher.id} entering={FadeInDown.delay(i * 80 + 200).duration(400)}>
-              <PressableCard
-                onPress={() => setSelectedTeacher(teacher)}
-                style={styles.teacherCardWrap}
-              >
-                <LinearGradient
-                  colors={['rgba(245,158,11,0.10)', 'rgba(239,68,68,0.06)']}
-                  style={styles.teacherCard}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.teacherPhotoWrap}>
-                    {teacher.photo ? (
-                      <Image source={teacher.photo} style={styles.teacherPhoto} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.teacherPhotoPlaceholder}>
-                        <GraduationCapIcon size={36} color="rgba(251,191,36,0.5)" />
-                      </View>
-                    )}
-                    <LinearGradient
-                      colors={['rgba(245,158,11,0.4)', 'rgba(239,68,68,0.2)']}
-                      style={styles.teacherPhotoOverlay}
-                    />
-                  </View>
-                  <View style={styles.teacherInfo}>
-                    <Text style={styles.teacherName}>{teacher.fullName}</Text>
-                    <View style={styles.teacherRoleBadge}>
-                      <Text style={styles.teacherRole}>{teacher.role}</Text>
+          <View style={{ marginTop: Spacing.md, gap: Spacing.sm }}>
+            {teachersData.map((teacher, i) => (
+              <AnimatedView key={teacher.id} entering={FadeInDown.delay(i * 60).duration(380)}>
+                <PressableCard onPress={() => setSelectedTeacher(teacher)}>
+                  <View style={styles.teacherCard}>
+                    <View style={styles.teacherPhotoWrap}>
+                      {teacher.photo ? (
+                        <Image source={teacher.photo} style={styles.teacherPhoto} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.teacherPhotoPlaceholder}>
+                          <GraduationCapIcon size={30} color={colors.amber} />
+                        </View>
+                      )}
                     </View>
-                    <Text style={styles.teacherSubject}>
-                      <Text style={{ color: `${Colors.foreground}70` }}></Text>
-                      {teacher.subject}
-                    </Text>
-                    <View style={styles.teacherAccent} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.teacherRole}>{teacher.role}</Text>
+                      <Text style={styles.teacherName} numberOfLines={1}>{teacher.fullName}</Text>
+                      <Text style={styles.teacherSubject} numberOfLines={1}>
+                        <Text style={{ color: colors.mutedForeground }}>Mapel: </Text>{teacher.subject}
+                      </Text>
+                      <View style={styles.teacherAccent} />
+                    </View>
                   </View>
-                  <View style={styles.teacherChevron}>
-                    <Text style={{ color: Colors.orange, fontSize: 18 }}>›</Text>
-                  </View>
-                </LinearGradient>
-              </PressableCard>
-            </AnimatedView>
-          ))}
+                </PressableCard>
+              </AnimatedView>
+            ))}
+          </View>
         </View>
 
-        {/* Search */}
-        <AnimatedView entering={FadeInDown.delay(350).duration(400)} style={styles.searchWrap}>
+        {/* Students Section */}
+        <View style={styles.studentsSection}>
+          <View style={styles.studentsHeaderRow}>
+            <View>
+              <View style={styles.eyebrow}>
+                <UsersIcon size={11} color={colors.mutedForeground} />
+                <Text style={styles.eyebrowText}>Murid</Text>
+              </View>
+              <Text style={styles.subSectionTitle}>Semua anggota kelas.</Text>
+            </View>
+            <Text style={styles.resultCount}>
+              <Text style={{ color: colors.foreground, fontFamily: Typography.bodyMedium }}>{filtered.length}</Text> dari {studentsData.length}
+            </Text>
+          </View>
+
+          {/* Search */}
           <View style={styles.searchBox}>
-            <SearchIcon size={18} color={Colors.mutedForeground} />
+            <SearchIcon size={16} color={colors.mutedForeground} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Cari nama murid..."
-              placeholderTextColor={Colors.mutedForeground}
+              placeholder="Cari nama, nomor absen, atau peran..."
+              placeholderTextColor={colors.mutedForeground}
               value={searchTerm}
               onChangeText={setSearchTerm}
               returnKeyType="search"
             />
             {searchTerm.length > 0 && (
               <TouchableOpacity onPress={() => setSearchTerm('')} style={styles.clearBtn}>
-                <Text style={{ color: Colors.mutedForeground, fontSize: 16 }}>✕</Text>
+                <XIcon size={14} color={colors.mutedForeground} />
               </TouchableOpacity>
             )}
           </View>
-          {searchTerm.length > 0 && (
-            <Text style={styles.searchResultCount}>
-              {filtered.length} hasil ditemukan
-            </Text>
-          )}
-        </AnimatedView>
 
-        {/* Student Grid */}
-        <View style={styles.grid}>
-          {filtered.map((student, i) => (
-            <AnimatedView key={student.id} entering={FadeInDown.delay(Math.min(i * 25, 450)).duration(350)}>
-              <PressableCard
-                onPress={() => setSelectedStudent(student)}
-                style={styles.studentCardOuter}
+          {/* Role filter chips */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} contentContainerStyle={{ gap: Spacing.xs }}>
+            {roles.map((r) => (
+              <TouchableOpacity
+                key={r}
+                onPress={() => setRoleFilter(r)}
+                style={[styles.chip, roleFilter === r && styles.chipActive]}
+                activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={['rgba(124,58,237,0.10)', 'rgba(16,185,129,0.05)']}
-                  style={styles.studentCardGrad}
-                >
-                  <View style={styles.studentPhotoWrap}>
-                    {student.photo ? (
-                      <Image source={student.photo} style={styles.studentPhoto} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.studentPhotoPlaceholder}>
-                        <PersonIcon size={44} color={`${Colors.mutedForeground}40`} />
-                      </View>
-                    )}
-                    <LinearGradient
-                      colors={['transparent', 'rgba(124,58,237,0.3)']}
-                      style={styles.studentPhotoGrad}
-                    />
-                  </View>
-                  <Text style={styles.studentName} numberOfLines={1}>{student.name}</Text>
-                  <View style={styles.studentPositionBadge}>
-                    <Text style={styles.studentPosition} numberOfLines={1}>{student.position}</Text>
-                  </View>
-                  <View style={styles.studentAccent} />
-                </LinearGradient>
-              </PressableCard>
-            </AnimatedView>
-          ))}
-        </View>
+                <Text style={[styles.chipText, roleFilter === r && styles.chipTextActive]}>
+                  {r === 'all' ? 'Semua peran' : r}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
-        {filtered.length === 0 && (
-          <AnimatedView entering={FadeInDown.duration(300)} style={styles.emptyBox}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
-            <Text style={styles.emptyText}>Tidak ada siswa ditemukan</Text>
-            <Text style={styles.emptySubText}>Coba kata kunci lain</Text>
-          </AnimatedView>
-        )}
+          {/* Grid */}
+          {filtered.length === 0 ? (
+            <AnimatedView entering={FadeIn.duration(250)} style={styles.emptyBox}>
+              <View style={styles.iconBadge}>
+                <UsersIcon size={18} color={colors.foreground} />
+              </View>
+              <Text style={styles.emptyTitle}>Tidak ada murid</Text>
+              <Text style={styles.emptySub}>Coba ubah kata kunci atau reset filter.</Text>
+              {(searchTerm || roleFilter !== 'all') && (
+                <TouchableOpacity
+                  style={styles.resetBtn}
+                  onPress={() => { setSearchTerm(''); setRoleFilter('all'); }}
+                >
+                  <Text style={styles.resetBtnText}>Reset filter</Text>
+                </TouchableOpacity>
+              )}
+            </AnimatedView>
+          ) : (
+            <View style={styles.grid}>
+              {filtered.map((student, i) => {
+                const hasRole = student.position && student.position !== '-';
+                return (
+                  <AnimatedView key={student.id} entering={FadeInDown.delay(Math.min(i * 15, 350)).duration(300)}>
+                    <PressableCard onPress={() => setSelectedStudent(student)} style={{ width: CARD_W }}>
+                      <View style={styles.studentCard}>
+                        <View style={styles.studentPhotoWrap}>
+                          {student.photo ? (
+                            <Image source={student.photo} style={styles.studentPhoto} resizeMode="cover" />
+                          ) : (
+                            <View style={styles.studentPhotoPlaceholder}>
+                              <PersonIcon size={26} color={colors.mutedForeground} />
+                            </View>
+                          )}
+                          <View style={styles.studentNoBadge}>
+                            <Text style={styles.studentNoText}>{student.no.padStart(2, '0')}</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.studentName} numberOfLines={1}>{student.name}</Text>
+                        {hasRole ? (
+                          <View style={styles.studentPositionBadge}>
+                            <Text style={styles.studentPosition} numberOfLines={1}>{student.position}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.studentAnggota}>Anggota</Text>
+                        )}
+                      </View>
+                    </PressableCard>
+                  </AnimatedView>
+                );
+              })}
+            </View>
+          )}
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -262,302 +273,179 @@ export default function StudentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.md,
-  },
-  headerBadgeWrap: {
-    marginBottom: Spacing.md,
-    borderRadius: BorderRadius.xl,
-    overflow: 'hidden',
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+
+  eyebrow: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    alignSelf: 'flex-start',
+    borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.3)',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  headerBadgeGrad: {
-    padding: 16,
+  eyebrowText: {
+    fontFamily: Typography.headingMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.mutedForeground,
   },
+
+  header: { paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: Spacing.lg },
   pageTitle: {
     fontFamily: Typography.heading,
-    fontSize: 28,
-    color: Colors.foreground,
-    textAlign: 'center',
-    marginBottom: Spacing.sm,
-    lineHeight: 38,
+    fontSize: 30,
+    lineHeight: 34,
+    color: colors.foreground,
+    marginTop: Spacing.sm,
   },
-  pageDesc: {
-    fontFamily: Typography.body,
-    fontSize: 14,
-    color: Colors.mutedForeground,
-    textAlign: 'center',
-    lineHeight: 21,
-    maxWidth: 300,
-    marginBottom: Spacing.md,
-  },
-  statsStrip: {
-    borderRadius: BorderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    width: '100%',
-  },
-  statsStripInner: {
+  pageTitleItalic: { fontFamily: Typography.body, fontStyle: 'italic', color: colors.mutedForeground },
+  pageDesc: { fontFamily: Typography.body, fontSize: 14, lineHeight: 20, color: colors.mutedForeground, marginTop: Spacing.sm },
+
+  statsRow: {
     flexDirection: 'row',
-    paddingVertical: Spacing.md,
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNum: {
-    fontFamily: Typography.heading,
-    fontSize: 24,
-    color: Colors.primary,
-  },
-  statLbl: {
-    fontFamily: Typography.body,
-    fontSize: 11,
-    color: Colors.mutedForeground,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 4,
-  },
+  statItem: { flex: 1 },
+  statLabel: { fontFamily: Typography.bodyMedium, fontSize: 9.5, letterSpacing: 1, textTransform: 'uppercase', color: colors.mutedForeground },
+  statValue: { fontFamily: Typography.heading, fontSize: 20, color: colors.foreground, marginTop: 4 },
+
+  subSectionTitle: { fontFamily: Typography.heading, fontSize: 21, color: colors.foreground, marginTop: Spacing.sm },
+
   // Teacher
   teacherSection: {
     paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.lg,
-  },
-  teacherHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  teacherHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  teacherIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(245,158,11,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  teacherSectionTitle: {
-    fontFamily: Typography.heading,
-    fontSize: 22,
-    color: Colors.orange,
-  },
-  teacherSectionDesc: {
-    fontFamily: Typography.body,
-    fontSize: 12,
-    color: Colors.mutedForeground,
-    marginBottom: Spacing.md,
-    marginLeft: Spacing.sm,
-  },
-  teacherCardWrap: {
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.3)',
-    marginBottom: Spacing.sm,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   teacherCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    padding: Spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.sm + 4,
   },
   teacherPhotoWrap: {
-    width: 72,
-    height: 88,
+    width: 64, height: 78,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
-    backgroundColor: Colors.muted,
+    backgroundColor: colors.surface2,
     flexShrink: 0,
-    position: 'relative',
   },
   teacherPhoto: { width: '100%', height: '100%' },
-  teacherPhotoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 24,
-  },
-  teacherPhotoPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(245,158,11,0.08)',
-  },
-  teacherInfo: { flex: 1 },
-  teacherName: {
-    fontFamily: Typography.heading,
-    fontSize: 15,
-    color: Colors.orange,
-    marginBottom: 4,
-  },
-  teacherRoleBadge: {
-    backgroundColor: 'rgba(245,158,11,0.12)',
-    borderRadius: BorderRadius.full,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginBottom: 4,
-  },
-  teacherRole: {
-    fontFamily: Typography.body,
-    fontSize: 11,
-    color: Colors.orangeLight,
-  },
-  teacherSubject: {
-    fontFamily: Typography.body,
-    fontSize: 12,
-    color: Colors.mutedForeground,
-  },
-  teacherAccent: {
-    marginTop: 8,
-    width: 36,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: Colors.orange,
-  },
-  teacherChevron: {
-    paddingLeft: Spacing.xs,
-  },
-  // Search
-  searchWrap: {
+  teacherPhotoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface2 },
+  teacherRole: { fontFamily: Typography.bodyMedium, fontSize: 9.5, letterSpacing: 1, textTransform: 'uppercase', color: colors.amber },
+  teacherName: { fontFamily: Typography.heading, fontSize: 15, color: colors.foreground, marginTop: 3 },
+  teacherSubject: { fontFamily: Typography.body, fontSize: 12, color: colors.foreground, marginTop: 3 },
+  teacherAccent: { marginTop: 8, width: 32, height: 3, borderRadius: 2, backgroundColor: colors.amber },
+
+  // Students
+  studentsSection: {
     paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
+    paddingTop: Spacing.lg,
+    marginTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
+  studentsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  resultCount: { fontFamily: Typography.body, fontSize: 11.5, color: colors.mutedForeground },
+
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.surface,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
+    paddingVertical: 11,
     gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: colors.cardBorder,
+    marginTop: Spacing.md,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: Typography.body,
-    fontSize: 14,
-    color: Colors.foreground,
+  searchInput: { flex: 1, fontFamily: Typography.body, fontSize: 14, color: colors.foreground },
+  clearBtn: { padding: 2 },
+
+  chipsRow: { marginTop: Spacing.sm, marginBottom: Spacing.md },
+  chip: {
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
-  clearBtn: {
-    padding: 2,
-  },
-  searchResultCount: {
-    fontFamily: Typography.body,
-    fontSize: 12,
-    color: Colors.mutedForeground,
-    marginTop: 6,
-    marginLeft: Spacing.md,
-  },
-  // Student grid
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontFamily: Typography.bodyMedium, fontSize: 12, color: colors.mutedForeground },
+  chipTextActive: { color: colors.primaryForeground },
+
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.sm,
-    justifyContent: 'space-between',
+    gap: CARD_GAP,
   },
-  studentCardOuter: {
-    width: CARD_W,
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
+  studentCard: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  studentCardGrad: {
-    padding: Spacing.sm + 2,
+    borderColor: colors.cardBorder,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
     alignItems: 'center',
   },
   studentPhotoWrap: {
-    width: 84,
-    height: 106,
+    width: '100%',
+    aspectRatio: 0.8,
     borderRadius: BorderRadius.md,
     overflow: 'hidden',
-    marginBottom: Spacing.xs,
-    backgroundColor: Colors.muted,
-    borderWidth: 1,
-    borderColor: `${Colors.primary}30`,
+    backgroundColor: colors.surface2,
     position: 'relative',
   },
   studentPhoto: { width: '100%', height: '100%' },
-  studentPhotoGrad: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 30,
+  studentPhotoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  studentNoBadge: {
+    position: 'absolute', top: 4, left: 4,
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.cardBorder,
+    borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1,
   },
-  studentPhotoPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  studentName: {
-    fontFamily: Typography.heading,
-    fontSize: 13,
-    color: Colors.primaryLight,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
+  studentNoText: { fontFamily: Typography.bodyMedium, fontSize: 9, color: colors.foreground },
+  studentName: { fontFamily: Typography.heading, fontSize: 12.5, color: colors.foreground, textAlign: 'center', marginTop: 6 },
   studentPositionBadge: {
-    backgroundColor: 'rgba(124,58,237,0.12)',
+    marginTop: 4,
     borderRadius: BorderRadius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surface2,
+    paddingHorizontal: 7, paddingVertical: 2,
+    maxWidth: '100%',
   },
-  studentPosition: {
-    fontFamily: Typography.body,
-    fontSize: 11,
-    color: Colors.primary,
-    textAlign: 'center',
+  studentPosition: { fontFamily: Typography.body, fontSize: 9.5, color: colors.mutedForeground },
+  studentAnggota: { fontFamily: Typography.body, fontSize: 9, color: colors.mutedForeground, opacity: 0.6, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.6 },
+
+  iconBadge: {
+    width: 40, height: 40, borderRadius: BorderRadius.md,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.surface2,
+    borderWidth: 1, borderColor: colors.cardBorder,
   },
-  studentAccent: {
-    marginTop: 6,
-    width: 28,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: Colors.primary,
-  },
+
   // Empty
-  emptyBox: {
-    alignItems: 'center',
-    paddingVertical: Spacing.xxl,
-    paddingHorizontal: Spacing.md,
+  emptyBox: { alignItems: 'center', paddingVertical: Spacing.xxl },
+  emptyTitle: { fontFamily: Typography.heading, fontSize: 16, color: colors.foreground, marginTop: Spacing.sm },
+  emptySub: { fontFamily: Typography.body, fontSize: 12.5, color: colors.mutedForeground, marginTop: 4 },
+  resetBtn: {
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1, borderColor: colors.border,
+    paddingHorizontal: 16, paddingVertical: 8,
   },
-  emptyEmoji: {
-    fontSize: 48,
-    marginBottom: Spacing.md,
-  },
-  emptyText: {
-    fontFamily: Typography.heading,
-    fontSize: 16,
-    color: Colors.foreground,
-    marginBottom: 4,
-  },
-  emptySubText: {
-    fontFamily: Typography.body,
-    fontSize: 13,
-    color: Colors.mutedForeground,
-  },
+  resetBtnText: { fontFamily: Typography.bodyMedium, fontSize: 12, color: colors.foreground },
 });

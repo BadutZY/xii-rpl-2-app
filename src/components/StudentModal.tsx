@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -17,8 +17,8 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Typography, BorderRadius, Spacing } from '../constants/theme';
+import { Typography, BorderRadius, Spacing, type ThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 import type { Student } from '../data/students';
 import {
   XIcon,
@@ -52,16 +52,16 @@ function getSocialUrl(platform: string, handle: string): string {
 }
 
 const socialColors: Record<string, string> = {
-  instagram: '#e1306c',
-  github: '#9ba3c0',
-  twitter: '#1d9bf0',
-  youtube: '#ef4444',
-  game: '#10b981',
-  website: '#7c3aed',
+  instagram: '#c1462f',
+  github: '#4a473f',
+  twitter: '#2f6fa8',
+  youtube: '#c1462f',
+  game: '#3f7d57',
+  website: '#242220',
 };
 
 function getSocialIcon(platform: string, color: string) {
-  const size = 18;
+  const size = 17;
   switch (platform) {
     case 'instagram': return <InstagramIcon size={size} color={color} />;
     case 'github': return <GithubIcon size={size} color={color} />;
@@ -76,9 +76,12 @@ function getSocialIcon(platform: string, color: string) {
 const AnimatedView = Animated.createAnimatedComponent(View);
 
 export const StudentModal = ({ student, onClose }: Props) => {
-  const scale = useSharedValue(0.88);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const scale = useSharedValue(0.9);
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(30);
+  const translateY = useSharedValue(24);
 
   React.useEffect(() => {
     if (student) {
@@ -89,8 +92,8 @@ export const StudentModal = ({ student, onClose }: Props) => {
   }, [student]);
 
   const handleClose = () => {
-    scale.value = withSpring(0.92, { damping: 22, stiffness: 280 });
-    translateY.value = withTiming(20, { duration: 160 });
+    scale.value = withSpring(0.94, { damping: 22, stiffness: 280 });
+    translateY.value = withTiming(16, { duration: 160 });
     opacity.value = withTiming(0, { duration: 180 }, (finished) => {
       if (finished) runOnJS(onClose)();
     });
@@ -110,7 +113,6 @@ export const StudentModal = ({ student, onClose }: Props) => {
     ['Nomor Absen', student.no],
     ['Umur', student.age > 0 ? `${student.age} tahun` : '-'],
     ['Tanggal Lahir', student.birthdate],
-    ['Kredit Poin', student.kreditPoin],
   ];
 
   return (
@@ -118,62 +120,45 @@ export const StudentModal = ({ student, onClose }: Props) => {
       <AnimatedView style={[styles.overlay, overlayStyle]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={handleClose} />
         <AnimatedView style={[styles.box, boxStyle]}>
-          {/* Header gradient bar */}
-          <LinearGradient
-            colors={['rgba(124,58,237,0.3)', 'rgba(16,185,129,0.15)', 'transparent']}
-            style={styles.boxHeaderGrad}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          />
-
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
             <View style={styles.closeBtnInner}>
-              <XIcon size={18} color={Colors.foreground} />
+              <XIcon size={17} color={colors.foreground} />
             </View>
           </TouchableOpacity>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-            {/* Photo */}
             <View style={styles.photoContainer}>
-              <View style={styles.photoRing}>
-                <View style={styles.photoWrap}>
-                  {student.photo ? (
-                    <Image source={student.photo} style={styles.photo} resizeMode="cover" />
-                  ) : (
-                    <View style={styles.photoPlaceholder}>
-                      <PersonIcon size={52} color={`${Colors.mutedForeground}50`} />
-                    </View>
-                  )}
-                </View>
+              <View style={styles.photoWrap}>
+                {student.photo ? (
+                  <Image source={student.photo} style={styles.photo} resizeMode="cover" />
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <PersonIcon size={48} color={colors.mutedForeground} />
+                  </View>
+                )}
               </View>
-              {/* Glow effect under photo */}
-              <LinearGradient
-                colors={['rgba(124,58,237,0.3)', 'transparent']}
-                style={styles.photoGlow}
-              />
             </View>
 
             <Text style={styles.nameText}>{student.fullName}</Text>
 
             <View style={styles.positionBadge}>
-              <LinearGradient colors={['rgba(124,58,237,0.2)', 'rgba(16,185,129,0.2)']} style={styles.positionBadgeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                <Text style={styles.positionText}>{student.position}</Text>
-              </LinearGradient>
+              <Text style={styles.positionText}>
+                {student.position && student.position !== '-' ? student.position : 'Anggota'}
+              </Text>
             </View>
 
-            {/* Info cards */}
             <View style={styles.infoGrid}>
-              {infoRows.map(([label, value]) => (
-                <View key={label} style={styles.infoCard}>
-                  <LinearGradient colors={['rgba(124,58,237,0.08)', 'rgba(16,185,129,0.04)']} style={styles.infoCardInner}>
+              {infoRows.map(([label, value], idx) => {
+                const isLastOdd = infoRows.length % 2 === 1 && idx === infoRows.length - 1;
+                return (
+                  <View key={label} style={[styles.infoCard, isLastOdd && styles.infoCardFull]}>
                     <Text style={styles.infoLabel}>{label}</Text>
                     <Text style={styles.infoValue}>{value}</Text>
-                  </LinearGradient>
-                </View>
-              ))}
+                  </View>
+                );
+              })}
             </View>
 
-            {/* Socials */}
             {hasSocials && (
               <View style={styles.socialsSection}>
                 <View style={styles.socialsDivider} />
@@ -181,13 +166,13 @@ export const StudentModal = ({ student, onClose }: Props) => {
                 <View style={styles.socialRow}>
                   {Object.entries(student.socials).map(([platform, handle]) => {
                     if (!handle || handle === '-') return null;
-                    const color = socialColors[platform] || Colors.foreground;
+                    const color = socialColors[platform] || colors.foreground;
                     const icon = getSocialIcon(platform, color);
                     if (!icon) return null;
                     return (
                       <TouchableOpacity
                         key={platform}
-                        style={[styles.socialBtn, { borderColor: `${color}40`, backgroundColor: `${color}12` }]}
+                        style={[styles.socialBtn, { borderColor: `${color}40` }]}
                         onPress={() => Linking.openURL(getSocialUrl(platform, handle))}
                       >
                         {icon}
@@ -204,181 +189,80 @@ export const StudentModal = ({ student, onClose }: Props) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(4,6,20,0.88)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.md,
   },
   box: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.background,
     borderRadius: BorderRadius.xl + 4,
     width: Math.min(SCREEN_W - 32, 420),
     maxHeight: '88%',
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: colors.cardBorder,
     overflow: 'hidden',
   },
-  boxHeaderGrad: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    zIndex: 0,
-  },
-  closeBtn: {
-    position: 'absolute',
-    top: Spacing.md,
-    right: Spacing.md,
-    zIndex: 20,
-  },
+  closeBtn: { position: 'absolute', top: Spacing.md, right: Spacing.md, zIndex: 20 },
   closeBtnInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.cardBorder,
+    alignItems: 'center', justifyContent: 'center',
   },
-  scroll: {
-    padding: Spacing.lg,
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  // Photo
-  photoContainer: {
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-    position: 'relative',
-  },
-  photoRing: {
-    padding: 3,
-    borderRadius: BorderRadius.lg + 3,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-  },
+  scroll: { padding: Spacing.lg, alignItems: 'center' },
+
+  photoContainer: { alignItems: 'center', marginBottom: Spacing.md, marginTop: Spacing.xs },
   photoWrap: {
-    width: 110,
-    height: 140,
+    width: 110, height: 140,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
-    backgroundColor: Colors.muted,
+    backgroundColor: colors.surface2,
+    borderWidth: 1, borderColor: colors.cardBorder,
   },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  photoPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.muted,
-  },
-  photoGlow: {
-    position: 'absolute',
-    bottom: -16,
-    width: 80,
-    height: 30,
-    borderRadius: 40,
-    alignSelf: 'center',
-  },
+  photo: { width: '100%', height: '100%' },
+  photoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface2 },
+
   nameText: {
     fontFamily: Typography.heading,
     fontSize: 18,
-    color: Colors.primaryLight,
+    color: colors.foreground,
     marginBottom: Spacing.sm,
     textAlign: 'center',
   },
   positionBadge: {
     borderRadius: BorderRadius.full,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.3)',
+    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14, paddingVertical: 5,
     marginBottom: Spacing.lg,
   },
-  positionBadgeGrad: {
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-  },
-  positionText: {
-    fontFamily: Typography.bodyMedium,
-    fontSize: 13,
-    color: Colors.primary,
-    textAlign: 'center',
-  },
-  // Info grid (2-column)
-  infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    width: '100%',
-    marginBottom: Spacing.md,
-  },
+  positionText: { fontFamily: Typography.bodyMedium, fontSize: 12.5, color: colors.mutedForeground, textAlign: 'center' },
+
+  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, width: '100%', marginBottom: Spacing.md },
   infoCard: {
-    width: '47%',
-    flex: 1,
+    width: '47%', flex: 1, minWidth: 120,
     borderRadius: BorderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    minWidth: 120,
-  },
-  infoCardInner: {
+    borderWidth: 1, borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
     padding: Spacing.sm + 2,
     alignItems: 'center',
   },
-  infoLabel: {
-    fontFamily: Typography.body,
-    fontSize: 10,
-    color: Colors.mutedForeground,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  infoValue: {
-    fontFamily: Typography.heading,
-    fontSize: 14,
-    color: Colors.foreground,
-    textAlign: 'center',
-  },
-  // Socials
-  socialsSection: {
-    width: '100%',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  socialsDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    width: '100%',
-    marginBottom: Spacing.md,
-  },
-  socialsLabel: {
-    fontFamily: Typography.bodyMedium,
-    fontSize: 10,
-    color: Colors.mutedForeground,
-    letterSpacing: 1.5,
-    marginBottom: Spacing.md,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
+  infoLabel: { fontFamily: Typography.body, fontSize: 9.5, color: colors.mutedForeground, textAlign: 'center', letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase' },
+  infoValue: { fontFamily: Typography.heading, fontSize: 14, color: colors.foreground, textAlign: 'center' },
+  infoCardFull: { width: '100%', flex: undefined, minWidth: '100%' },
+
+  socialsSection: { width: '100%', alignItems: 'center', marginTop: 4 },
+  socialsDivider: { height: 1, backgroundColor: colors.border, width: '100%', marginBottom: Spacing.md },
+  socialsLabel: { fontFamily: Typography.bodyMedium, fontSize: 10, color: colors.mutedForeground, letterSpacing: 1.5, marginBottom: Spacing.md },
+  socialRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap', justifyContent: 'center' },
   socialBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 42, height: 42, borderRadius: BorderRadius.md,
+    borderWidth: 1, backgroundColor: colors.surface,
+    alignItems: 'center', justifyContent: 'center',
   },
 });
 

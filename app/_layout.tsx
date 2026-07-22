@@ -14,9 +14,23 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Colors } from '../src/constants/theme';
+import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
+
+// Inner shell so it can read the theme via context (needs to be inside <ThemeProvider>)
+function AppShell() {
+  const { colors, isDark } = useTheme();
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </GestureHandlerRootView>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -39,11 +53,9 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <StatusBar style="light" backgroundColor={Colors.background} />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </GestureHandlerRootView>
+    // `initialMode="dark"` makes dark the default theme on app start.
+    <ThemeProvider initialMode="dark">
+      <AppShell />
+    </ThemeProvider>
   );
 }

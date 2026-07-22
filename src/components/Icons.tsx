@@ -41,6 +41,13 @@ export const ArrowRightIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }
   </Svg>
 );
 
+export const ArrowUpRightIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="7" y1="17" x2="17" y2="7" />
+    <Polyline points="7 7 17 7 17 17" />
+  </Svg>
+);
+
 export const ArrowDownIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
     <Line x1="12" y1="5" x2="12" y2="19" />
@@ -359,5 +366,26 @@ export const LoaderIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: Ic
     <Line x1="18" y1="12" x2="22" y2="12" />
     <Line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
     <Line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+  </Svg>
+);
+
+// Sun / Moon — used for the dark/light theme toggle
+export const SunIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="4" />
+    <Line x1="12" y1="2" x2="12" y2="4" />
+    <Line x1="12" y1="20" x2="12" y2="22" />
+    <Line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+    <Line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+    <Line x1="2" y1="12" x2="4" y2="12" />
+    <Line x1="20" y1="12" x2="22" y2="12" />
+    <Line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+    <Line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+  </Svg>
+);
+
+export const MoonIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
   </Svg>
 );

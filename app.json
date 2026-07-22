@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "XI RPL 2",
+    "name": "XII RPL 2",
     "slug": "xi-rpl2-mobile",
-    "version": "1.5.3",
+    "version": "2.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#171a2e"
+      "backgroundColor": "#f5f3ee"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -25,10 +25,12 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#171a2e"
+        "backgroundColor": "#f5f3ee"
       },
       "package": "com.xirpl2.mobile",
-      "runtimeVersion": "1.0.0"
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -40,7 +42,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#171a2e",
+          "backgroundColor": "#f5f3ee",
           "image": "./assets/splash.png",
           "resizeMode": "contain"
         }
@@ -54,7 +56,7 @@
       "expo-status-bar"
     ],
     "scheme": "xirpl2",
-    "backgroundColor": "#171a2e",
+    "backgroundColor": "#f5f3ee",
     "extra": {
       "router": {
         "origin": false
