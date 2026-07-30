@@ -76,9 +76,6 @@ function TabBarIcon({ focused, icon, focusedIcon, label }: TabIconProps) {
 function ThemeToggleButton() {
   const { colors, isDark, toggleTheme } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-
-  // Use the exact tap position so the circular reveal grows from wherever
-  // the finger touched the button — same idea as the website's effect.
   const handlePress = (e: GestureResponderEvent) => {
     const { pageX, pageY } = e.nativeEvent;
     toggleTheme({ x: pageX, y: pageY });
