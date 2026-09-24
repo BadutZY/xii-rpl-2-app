@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "XII RPL 2",
-    "slug": "xi-rpl2-mobile",
-    "version": "2.5.0",
+    "slug": "xii-rpl2-mobile",
+    "version": "2.5.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,10 +16,13 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.xirpl2.mobile",
+      "bundleIdentifier": "com.xiirpl2.mobile",
       "requiresFullScreen": false,
       "runtimeVersion": {
         "policy": "appVersion"
+      },
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Dipakai untuk memilih foto profil baru."
       }
     },
     "android": {
@@ -27,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f5f3ee"
       },
-      "package": "com.xirpl2.mobile",
+      "package": "com.xiirpl2.mobile",
       "runtimeVersion": {
         "policy": "appVersion"
       }
@@ -55,7 +58,7 @@
       ],
       "expo-status-bar"
     ],
-    "scheme": "xirpl2",
+    "scheme": "xiirpl2",
     "backgroundColor": "#f5f3ee",
     "extra": {
       "router": {

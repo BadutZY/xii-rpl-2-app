@@ -1,23 +1,19 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useFocusEffect } from 'expo-router';
 import { Typography, BorderRadius, Spacing, type ThemeColors } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
-import {
-  lessonSchedule,
-  scheduleDetails,
-  piketSchedule,
-  dayNames,
-  dayLabels,
-} from '../../src/data/schedule';
-import { studentsData, type Student } from '../../src/data/students';
+import { dayNames, dayLabels } from '../../src/data/schedule';
+import { useSchedule } from '../../src/hooks/useSchedule';
+import { fetchAllProfiles, mergeStudents, type MergedStudent } from '../../src/lib/profilesApi';
 import { ScheduleModal } from '../../src/components/ScheduleModal';
 import { StudentModal } from '../../src/components/StudentModal';
 import { BookOpenIcon, BrushIcon, EyeIcon, UserCircleIcon, CalendarIcon } from '../../src/components/Icons';
@@ -31,8 +27,24 @@ export default function ScheduleScreen() {
   const [activeTab, setActiveTab] = useState<'lesson' | 'piket'>('lesson');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [modalDay, setModalDay] = useState<string | null>(null);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<MergedStudent | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Jadwal (pelajaran, detail guru, piket) sekarang ditarik langsung dari
+  // Supabase — bisa diubah admin lewat layar Admin — dengan data statis
+  // sebagai fallback instan sebelum network selesai. Sama seperti website.
+  const { lessonSchedule, scheduleDetails, piketSchedule, loading: scheduleLoading } = useSchedule();
+
+  const [studentsList, setStudentsList] = useState<MergedStudent[]>(() => mergeStudents([]));
+  useEffect(() => {
+    let active = true;
+    fetchAllProfiles().then((profiles) => {
+      if (active) setStudentsList(mergeStudents(profiles));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -43,8 +55,8 @@ export default function ScheduleScreen() {
   const today = jsToDay[new Date().getDay()];
   const filteredDays = filterDay === 'all' ? [...dayNames] : dayNames.filter((d) => d === filterDay);
 
-  const findStudentByName = (fullName: string): Student | null =>
-    studentsData.find((s) => s.fullName.toUpperCase() === fullName.toUpperCase()) || null;
+  const findStudentByName = (fullName: string): MergedStudent | null =>
+    studentsList.find((s) => s.fullName.toUpperCase() === fullName.toUpperCase()) || null;
 
   const stats = useMemo(() => {
     const totalLessons = dayNames.reduce(
@@ -58,7 +70,7 @@ export default function ScheduleScreen() {
       { label: 'Sesi/minggu', value: totalLessons.toString().padStart(2, '0') },
       { label: 'Mapel', value: uniqueSubjects.size.toString().padStart(2, '0') },
     ];
-  }, []);
+  }, [lessonSchedule]);
 
   return (
     <View style={styles.container}>
@@ -139,12 +151,20 @@ export default function ScheduleScreen() {
         <View style={styles.cards}>
           {activeTab === 'lesson'
             ? filteredDays.map((day, i) => (
-                <LessonCard key={day} day={day} isToday={day === today} index={i} onOpenDetail={() => setModalDay(day)} />
+                <LessonCard
+                  key={day}
+                  day={day}
+                  items={lessonSchedule[day] ?? []}
+                  isToday={day === today}
+                  index={i}
+                  onOpenDetail={() => setModalDay(day)}
+                />
               ))
             : filteredDays.map((day, i) => (
                 <PiketCard
                   key={day}
                   day={day}
+                  items={piketSchedule[day] ?? []}
                   isToday={day === today}
                   index={i}
                   onSelectStudent={(name) => {
@@ -191,10 +211,21 @@ function DayHeader({ day, isToday, count, kind }: { day: string; isToday: boolea
   );
 }
 
-function LessonCard({ day, isToday, index, onOpenDetail }: { day: string; isToday: boolean; index: number; onOpenDetail: () => void }) {
+function LessonCard({
+  day,
+  items,
+  isToday,
+  index,
+  onOpenDetail,
+}: {
+  day: string;
+  items: { time: string; subject: string }[];
+  isToday: boolean;
+  index: number;
+  onOpenDetail: () => void;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const items = lessonSchedule[day] ?? [];
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index * 50, 300)).duration(350)} style={[styles.dayCard, isToday && styles.dayCardToday]}>
       <DayHeader day={day} isToday={isToday} count={items.length} kind="lesson" />
@@ -221,10 +252,21 @@ function LessonCard({ day, isToday, index, onOpenDetail }: { day: string; isToda
   );
 }
 
-function PiketCard({ day, isToday, index, onSelectStudent }: { day: string; isToday: boolean; index: number; onSelectStudent: (name: string) => void }) {
+function PiketCard({
+  day,
+  items,
+  isToday,
+  index,
+  onSelectStudent,
+}: {
+  day: string;
+  items: { fullName: string; nickname: string }[];
+  isToday: boolean;
+  index: number;
+  onSelectStudent: (name: string) => void;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const items = piketSchedule[day] ?? [];
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index * 50, 300)).duration(350)} style={[styles.dayCard, isToday && styles.dayCardToday]}>
       <DayHeader day={day} isToday={isToday} count={items.length} kind="piket" />

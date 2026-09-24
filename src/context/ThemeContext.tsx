@@ -22,7 +22,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 // Key used to persist the chosen theme mode across app restarts.
-const THEME_STORAGE_KEY = 'xi-rpl2:theme-mode';
+const THEME_STORAGE_KEY = 'xii-rpl2:theme-mode';
 
 function isValidThemeMode(value: unknown): value is ThemeMode {
   return value === 'light' || value === 'dark';

@@ -4,6 +4,13 @@
  * Local video player menggunakan react-native-webview (sudah terinstall).
  * Tidak butuh expo-av / expo-video sama sekali.
  *
+ * PENTING (fix bug "video lokal tidak jalan di APK release"):
+ *   URI video lokal di-resolve lewat expo-asset (Asset.fromModule().
+ *   downloadAsync()), BUKAN lewat Image.resolveAssetSource(). Ini wajib
+ *   karena di production APK, Image.resolveAssetSource() mengembalikan
+ *   URI dengan skema native (asset:/...) yang tidak bisa dibaca WebView —
+ *   lihat komentar lengkap di fungsi useResolvedVideoUri() di bawah.
+ *
  * HOW TO ADD LOCAL VIDEOS di src/data/videos.ts:
  *   {
  *     id: 'local-1',
@@ -44,26 +51,77 @@ import {
   Share,
   Pressable,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 
 /**
- * Resolve a video src (string URL or require() number) to a string URL
- * usable inside WebView's HTML5 <video src="...">.
+ * Resolve a video src (string URL or require() number) menjadi URI file
+ * lokal yang BENAR-BENAR bisa diakses WebView, baik saat development
+ * (Expo Go / dev client — Metro menyajikan asset lewat HTTP) MAUPUN saat
+ * production APK (asset sudah di-bundle ke dalam APK, tidak lagi tersedia
+ * lewat HTTP).
  *
- * - string  → returned as-is (URL or data URI)
- * - number  → Metro bundled asset; resolved via Image.resolveAssetSource()
- *             which returns the local file:// or http://localhost URI
- *             that the packager serves during development.
+ * BUG LAMA (Image.resolveAssetSource):
+ *   Di production APK, Image.resolveAssetSource(require(...)) mengembalikan
+ *   URI dengan skema khusus Android (mis. "asset:/assets/...mp4") yang HANYA
+ *   dipahami komponen native RN (Image/Video), TAPI TIDAK dipahami mesin
+ *   WebView (karena <video> di-load dari HTML string, bukan lewat bundler).
+ *   Makanya video lokal lancar di Expo/dev tapi diam total di APK release.
+ *
+ * FIX:
+ *   Pakai expo-asset (Asset.fromModule().downloadAsync()) untuk MENYALIN
+ *   file video ke folder cache aplikasi dan mendapat URI "file://..." asli
+ *   yang selalu valid di SEMUA environment (dev, EAS build, maupun
+ *   ./gradlew assembleRelease).
  */
-function resolveVideoSrc(src: string | number): string {
-  if (typeof src === 'string') return src;
-  try {
-    // Image.resolveAssetSource works for any static asset (images, video, audio)
-    const resolved = Image.resolveAssetSource(src);
-    return resolved?.uri ?? '';
-  } catch {
-    return '';
-  }
+function useResolvedVideoUri(src: string | number | undefined) {
+  const [uri, setUri]     = useState<string | null>(null);
+  const [error, setError] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setUri(null);
+    setError(false);
+
+    if (src === undefined || src === null) return;
+
+    // URL online (http/https) atau data URI → langsung dipakai apa adanya.
+    if (typeof src === 'string') {
+      setUri(src);
+      return;
+    }
+
+    (async () => {
+      try {
+        const asset = Asset.fromModule(src);
+        if (!asset.downloaded) {
+          await asset.downloadAsync();
+        }
+        // localUri = path file:// asli di storage device, selalu tersedia
+        // setelah downloadAsync — baik di dev maupun di production build.
+        const resolved = asset.localUri ?? asset.uri ?? null;
+        if (!cancelled) setUri(resolved);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  return { uri, error };
+}
+
+/**
+ * Ambil folder induk dari sebuah file:// URI, dipakai sebagai baseUrl
+ * WebView (diperlukan agar WKWebView di iOS diizinkan membaca file lokal
+ * tersebut; di Android tidak masalah, tapi tetap aman untuk disertakan).
+ */
+function dirnameOfUri(uri: string): string {
+  const idx = uri.lastIndexOf('/');
+  return idx === -1 ? uri : uri.slice(0, idx + 1);
 }
 import Animated, {
   FadeInDown,
@@ -79,6 +137,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Asset } from 'expo-asset';
 import { WebView } from 'react-native-webview';
 import { useFocusEffect } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -184,6 +243,11 @@ function LocalVideoModal({
   // Ambil orientasi dari data video, default ke 'landscape'
   const videoOrientation: VideoOrientation = video?.orientation ?? 'landscape';
 
+  // Resolve URI video lokal (lihat penjelasan di useResolvedVideoUri di atas).
+  // Hook ini dipanggil TANPA syarat (sebelum early-return `if (!video)`)
+  // supaya urutan hook React tetap konsisten di setiap render.
+  const { uri: resolvedUri, error: resolveError } = useResolvedVideoUri(video?.src);
+
   useEffect(() => {
     if (video) {
       overlayOp.value = withTiming(1, { duration: 240 });
@@ -229,9 +293,11 @@ function LocalVideoModal({
 
   if (!video) return null;
 
-  const videoSrc = resolveVideoSrc(video.src);
-
-  const html = `
+  // Selagi expo-asset masih menyalin file video ke cache (biasanya cuma
+  // sekejap), tampilkan indikator loading — HTML/WebView baru dibangun
+  // setelah URI final tersedia, supaya tidak pernah mencoba me-load URI
+  // asset:/... yang tidak valid di dalam WebView.
+  const html = resolvedUri ? `
 <!DOCTYPE html>
 <html>
 <head>
@@ -255,7 +321,7 @@ function LocalVideoModal({
 </head>
 <body>
   <video
-    src="${videoSrc}"
+    src="${resolvedUri}"
     controls
     autoplay
     playsinline
@@ -263,7 +329,7 @@ function LocalVideoModal({
   ></video>
 </body>
 </html>
-`;
+` : '';
 
   const dim = Dimensions.get('window');
 
@@ -365,18 +431,36 @@ function LocalVideoModal({
             maupun navigation bar, di landscape maupun portrait.
           */}
           <View style={isFS ? styles.videoAreaFS : { width: previewW, height: previewH, backgroundColor: '#000' }}>
-            <WebView
-              source={{ html }}
-              style={isFS ? styles.webviewFS : { width: previewW, height: previewH, backgroundColor: '#000' }}
-              mediaPlaybackRequiresUserAction={false}
-              allowsInlineMediaPlayback
-              allowsFullscreenVideo={false}
-              javaScriptEnabled
-              scrollEnabled={false}
-              bounces={false}
-              overScrollMode="never"
-              onShouldStartLoadWithRequest={() => true}
-            />
+            {resolvedUri ? (
+              <WebView
+                source={{ html, baseUrl: dirnameOfUri(resolvedUri) }}
+                style={isFS ? styles.webviewFS : { width: previewW, height: previewH, backgroundColor: '#000' }}
+                mediaPlaybackRequiresUserAction={false}
+                allowsInlineMediaPlayback
+                allowsFullscreenVideo={false}
+                javaScriptEnabled
+                originWhitelist={['*']}
+                mixedContentMode="always"
+                // ── Properti kunci untuk fix video lokal di APK release ──
+                // Tanpa ini, WebView (terutama di beberapa versi Android/
+                // WebView vendor) bisa menolak membaca file:// URI hasil
+                // expo-asset walau URI-nya sendiri sudah benar.
+                allowFileAccess
+                allowFileAccessFromFileURLs
+                allowUniversalAccessFromFileURLs
+                scrollEnabled={false}
+                bounces={false}
+                overScrollMode="never"
+                onShouldStartLoadWithRequest={() => true}
+              />
+            ) : (
+              <View style={styles.videoLoadingWrap}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.videoLoadingText}>
+                  {resolveError ? 'Gagal memuat video.' : 'Menyiapkan video…'}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Info (hanya mode normal) */}
@@ -977,6 +1061,8 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   // Area video saat fullscreen: mengisi sisa ruang setelah header dan safe-area padding
   videoAreaFS: { flex: 1, backgroundColor: '#000' },
   webviewFS:   { flex: 1, backgroundColor: '#000' },
+  videoLoadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#000' },
+  videoLoadingText: { fontFamily: Typography.body, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   modalTopGrad: { position: 'absolute', top: 0, left: 0, right: 0, height: 100, zIndex: 0 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: Spacing.sm, zIndex: 1 },
   modalHeaderFS: { backgroundColor: 'rgba(0,0,0,0.6)', borderBottomColor: 'rgba(255,255,255,0.1)' },

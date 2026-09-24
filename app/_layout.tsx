@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/space-grotesk';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext';
+import { AuthProvider } from '../src/context/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +28,9 @@ function AppShell() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false, presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="profile" options={{ headerShown: false, animation: 'slide_from_right' }} />
+        <Stack.Screen name="admin" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </GestureHandlerRootView>
   );
@@ -55,7 +59,9 @@ export default function RootLayout() {
   return (
     // `initialMode="dark"` makes dark the default theme on app start.
     <ThemeProvider initialMode="dark">
-      <AppShell />
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

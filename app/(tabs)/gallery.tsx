@@ -21,7 +21,7 @@ import Animated, {
 import { useFocusEffect } from 'expo-router';
 import { Typography, BorderRadius, Spacing, type ThemeColors } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
-import { galleryImages, GalleryImage } from '../../src/data/gallery';
+import { galleryByGrade, GalleryImage, GalleryGrade } from '../../src/data/gallery';
 import {
   ImagesIcon,
   XIcon,
@@ -33,6 +33,10 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const GRID_GAP = 10;
 const NUM_COLS = 2;
 const TILE_W = (SCREEN_W - Spacing.md * 2 - GRID_GAP * (NUM_COLS - 1)) / NUM_COLS;
+
+const GRADE_TABS: GalleryGrade[] = ['XI', 'XII'];
+// Tab yang terbuka pertama kali saat halaman gallery dibuka.
+const DEFAULT_GRADE: GalleryGrade = 'XII';
 
 // Plain, simple photo tile — square, image fills 100% of the tile, no frame/tilt.
 interface TileProps { img: GalleryImage; index: number; onPress: (idx: number) => void; }
@@ -62,9 +66,9 @@ const PhotoTile = memo(({ img, index, onPress }: TileProps) => {
 });
 
 // Lightbox
-interface LightboxProps { visible: boolean; idx: number | null; onClose: () => void; onPrev: () => void; onNext: () => void; }
+interface LightboxProps { visible: boolean; idx: number | null; images: GalleryImage[]; onClose: () => void; onPrev: () => void; onNext: () => void; }
 
-function Lightbox({ visible, idx, onClose, onPrev, onNext }: LightboxProps) {
+function Lightbox({ visible, idx, images, onClose, onPrev, onNext }: LightboxProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -104,7 +108,8 @@ function Lightbox({ visible, idx, onClose, onPrev, onNext }: LightboxProps) {
   const imgStyle = useAnimatedStyle(() => ({ opacity: imgOp.value, transform: [{ translateX: imgTx.value }] }));
 
   if (!visible || idx === null) return null;
-  const img = galleryImages[idx];
+  const img = images[idx];
+  if (!img) return null;
 
   return (
     <Modal transparent visible={visible} onRequestClose={handleClose} animationType="none" statusBarTranslucent>
@@ -117,7 +122,7 @@ function Lightbox({ visible, idx, onClose, onPrev, onNext }: LightboxProps) {
         <View style={styles.lbCounterWrap}>
           <View style={styles.lbCounterInner}>
             <ImagesIcon size={11} color="#f5f3ee" />
-            <Text style={styles.lbCounterText}>{(idx ?? 0) + 1} / {galleryImages.length}</Text>
+            <Text style={styles.lbCounterText}>{(idx ?? 0) + 1} / {images.length}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.lbPrev} onPress={handlePrev}>
@@ -140,7 +145,7 @@ function Lightbox({ visible, idx, onClose, onPrev, onNext }: LightboxProps) {
   );
 }
 
-const GalleryHeader = memo(() => {
+const GalleryHeader = memo(({ count }: { count: number }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
@@ -153,12 +158,38 @@ const GalleryHeader = memo(() => {
         Galeri <Text style={styles.pageTitleItalic}>kegiatan</Text>.
       </Animated.Text>
       <Animated.Text entering={FadeInDown.delay(150).duration(400)} style={styles.pageDesc}>
-        Momen-momen berharga kelas XII RPL 2, tersusun dalam grid rapi.
+        Momen-momen berharga kelas XI & XII RPL 2, tersusun dalam grid rapi.
       </Animated.Text>
       <Animated.View entering={FadeInDown.delay(220).duration(400)} style={styles.countBadge}>
-        <Text style={styles.countBadgeText}>{galleryImages.length} Foto</Text>
+        <Text style={styles.countBadgeText}>{count} Foto</Text>
       </Animated.View>
     </View>
+  );
+});
+
+interface GradeTabsProps { active: GalleryGrade; onChange: (g: GalleryGrade) => void; }
+
+const GradeTabs = memo(({ active, onChange }: GradeTabsProps) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <Animated.View entering={FadeInDown.delay(260).duration(400)} style={styles.tabsWrap}>
+      {GRADE_TABS.map((grade) => {
+        const isActive = grade === active;
+        return (
+          <TouchableOpacity
+            key={grade}
+            activeOpacity={0.85}
+            onPress={() => onChange(grade)}
+            style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabBtnText, isActive && styles.tabBtnTextActive]}>
+              Kelas {grade}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </Animated.View>
   );
 });
 
@@ -166,28 +197,45 @@ export default function GalleryScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const [activeGrade, setActiveGrade] = useState<GalleryGrade>(DEFAULT_GRADE);
   const [selIdx, setSelIdx] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
+  const activeImages = galleryByGrade[activeGrade];
+
   useFocusEffect(useCallback(() => { scrollRef.current?.scrollTo({ y: 0, animated: false }); }, []));
 
-  const goNext = useCallback(() => setSelIdx((p) => (p !== null ? (p + 1) % galleryImages.length : null)), []);
-  const goPrev = useCallback(() => setSelIdx((p) => (p !== null ? (p - 1 + galleryImages.length) % galleryImages.length : null)), []);
+  const handleChangeGrade = useCallback((grade: GalleryGrade) => {
+    setActiveGrade(grade);
+    setSelIdx(null);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, []);
+
+  const goNext = useCallback(() => setSelIdx((p) => (p !== null ? (p + 1) % activeImages.length : null)), [activeImages.length]);
+  const goPrev = useCallback(() => setSelIdx((p) => (p !== null ? (p - 1 + activeImages.length) % activeImages.length : null)), [activeImages.length]);
 
   return (
     <View style={styles.container}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
-        <GalleryHeader />
-        {/* Simple 2-column grid — every tile is square and the photo fills it 100%. */}
-        <View style={styles.grid}>
-          {galleryImages.map((img, i) => (
-            <PhotoTile key={img.id} img={img} index={i} onPress={setSelIdx} />
-          ))}
-        </View>
+        <GalleryHeader count={activeImages.length} />
+        <GradeTabs active={activeGrade} onChange={handleChangeGrade} />
+
+        {activeImages.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <ImagesIcon size={22} color={colors.mutedForeground} />
+            <Text style={styles.emptyText}>Belum ada foto untuk kelas {activeGrade}.</Text>
+          </View>
+        ) : (
+          <View style={styles.grid}>
+            {activeImages.map((img, i) => (
+              <PhotoTile key={`${activeGrade}-${img.id}`} img={img} index={i} onPress={setSelIdx} />
+            ))}
+          </View>
+        )}
         <View style={{ height: 48 }} />
       </ScrollView>
 
-      <Lightbox visible={selIdx !== null} idx={selIdx} onClose={() => setSelIdx(null)} onPrev={goPrev} onNext={goNext} />
+      <Lightbox visible={selIdx !== null} idx={selIdx} images={activeImages} onClose={() => setSelIdx(null)} onPrev={goPrev} onNext={goNext} />
     </View>
   );
 }
@@ -215,6 +263,50 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface, paddingHorizontal: 12, paddingVertical: 5,
   },
   countBadgeText: { fontFamily: Typography.bodyMedium, fontSize: 11.5, color: colors.mutedForeground },
+
+  // Grade tabs (Kelas XI / Kelas XII)
+  tabsWrap: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  tabBtnActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  tabBtnText: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 13,
+    color: colors.mutedForeground,
+  },
+  tabBtnTextActive: {
+    color: colors.primaryForeground,
+  },
+
+  emptyWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 64,
+    paddingHorizontal: Spacing.md,
+  },
+  emptyText: {
+    fontFamily: Typography.body,
+    fontSize: 13,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+  },
 
   // Plain 2-column grid
   grid: {

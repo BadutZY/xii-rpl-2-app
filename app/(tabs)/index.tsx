@@ -165,7 +165,7 @@ export default function HomeScreen() {
           style={[styles.heroImageWrap, heroParallax]}
         >
           <ImageBackground
-            source={require('../../assets/gallery/hero-class.jpeg')}
+            source={require('../../assets/gallery/kelas12/petugas1.jpeg')}
             style={styles.heroImage}
             imageStyle={{ borderRadius: BorderRadius.xl }}
             resizeMode="cover"

@@ -12,7 +12,6 @@ export interface Student {
 
 export const studentsData: Student[] = [
   { id: 1, no: '1', name: 'Abiyan', fullName: 'ABIYAN ZUL FADLI', age: 18, birthdate: '15 Juli 2008', position: '-', socials: { instagram: 'https://www.instagram.com/yanxilberto/' } },
-  { id: 2, no: '2', name: 'Bara', fullName: 'AHMAD RAIHAN BATUBARA', age: 17, birthdate: '25 Januari 2009', position: '-', socials: { instagram: 'https://www.instagram.com/ahmd_baraaaa/' } },
   { id: 3, no: '3', name: 'Amanda', fullName: 'AMANDA WIDYA PRAMESTI', age: 18, birthdate: '29 Mei 2008', position: 'Sekretaris', socials: { instagram: 'https://www.instagram.com/amanddaaaaaaaa_/' } },
   { id: 4, no: '4', name: 'Ayesha', fullName: 'AYESHA NADYA AFSARIANA', age: 17, birthdate: '4 Juni 2009', position: 'Wakil Ketua Kelas', socials: { instagram: 'https://www.instagram.com/fleurbunns_dysha/' } },
   { id: 5, no: '5', name: 'Chantika', fullName: 'CHANTIKA OCTAVIANY', age: 18, birthdate: '11 Oktober 2008', position: 'Sekretaris', socials: { instagram: 'https://www.instagram.com/chikaaiu/' } },

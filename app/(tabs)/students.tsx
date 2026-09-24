@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,8 +19,14 @@ import Animated, {
 import { useFocusEffect } from 'expo-router';
 import { Typography, BorderRadius, Spacing, type ThemeColors } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
-import { studentsData, type Student } from '../../src/data/students';
-import { teachersData, type Teacher } from '../../src/data/teachers';
+import {
+  fetchAllProfiles,
+  mergeStudents,
+  mergeTeachers,
+  type MergedStudent,
+  type MergedTeacher,
+} from '../../src/lib/profilesApi';
+import { toImageSource } from '../../src/lib/imageSource';
 import { StudentModal } from '../../src/components/StudentModal';
 import { TeacherModal } from '../../src/components/TeacherModal';
 import { UsersIcon, GraduationCapIcon, SearchIcon, PersonIcon, XIcon } from '../../src/components/Icons';
@@ -54,9 +60,28 @@ export default function StudentsScreen() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<MergedStudent | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<MergedTeacher | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Roster dasar (nama, id) tetap dari data/students.ts & data/teachers.ts —
+  // sama seperti website — tapi nickname, bio, foto, posisi, dan sosial media
+  // semuanya ditarik & di-overlay langsung dari tabel `profiles` di Supabase,
+  // supaya perubahan lewat Profil/Admin langsung terlihat di sini juga.
+  const [studentsList, setStudentsList] = useState<MergedStudent[]>(() => mergeStudents([]));
+  const [teachersList, setTeachersList] = useState<MergedTeacher[]>(() => mergeTeachers([]));
+
+  useEffect(() => {
+    let active = true;
+    fetchAllProfiles().then((profiles) => {
+      if (!active) return;
+      setStudentsList(mergeStudents(profiles));
+      setTeachersList(mergeTeachers(profiles));
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -66,17 +91,17 @@ export default function StudentsScreen() {
 
   const roles = useMemo(() => {
     const set = new Set<string>();
-    studentsData.forEach((s) => {
+    studentsList.forEach((s) => {
       const p = (s.position || '').trim();
       if (p && p !== '-') set.add(p);
     });
     return ['all', ...Array.from(set)];
-  }, []);
+  }, [studentsList]);
 
   const filtered = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     const isNumeric = /^\d+$/.test(term);
-    return studentsData.filter((s) => {
+    return studentsList.filter((s) => {
       if (roleFilter !== 'all' && s.position !== roleFilter) return false;
       if (!term) return true;
       const noMatch = isNumeric ? s.no === term : s.no.toLowerCase().includes(term);
@@ -87,7 +112,7 @@ export default function StudentsScreen() {
         noMatch
       );
     });
-  }, [searchTerm, roleFilter]);
+  }, [searchTerm, roleFilter, studentsList]);
 
   return (
     <View style={styles.container}>
@@ -111,11 +136,11 @@ export default function StudentsScreen() {
           <Animated.View entering={FadeInDown.delay(220).duration(400)} style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Murid</Text>
-              <Text style={styles.statValue}>{studentsData.length.toString().padStart(2, '0')}</Text>
+              <Text style={styles.statValue}>{studentsList.length.toString().padStart(2, '0')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Wali kelas</Text>
-              <Text style={styles.statValue}>{teachersData.length.toString().padStart(2, '0')}</Text>
+              <Text style={styles.statValue}>{teachersList.length.toString().padStart(2, '0')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Peran khusus</Text>
@@ -133,13 +158,13 @@ export default function StudentsScreen() {
           <Text style={styles.subSectionTitle}>Yang membimbing di balik layar.</Text>
 
           <View style={{ marginTop: Spacing.md, gap: Spacing.sm }}>
-            {teachersData.map((teacher, i) => (
+            {teachersList.map((teacher, i) => (
               <AnimatedView key={teacher.id} entering={FadeInDown.delay(i * 60).duration(380)}>
                 <PressableCard onPress={() => setSelectedTeacher(teacher)}>
                   <View style={styles.teacherCard}>
                     <View style={styles.teacherPhotoWrap}>
                       {teacher.photo ? (
-                        <Image source={teacher.photo} style={styles.teacherPhoto} resizeMode="cover" />
+                        <Image source={toImageSource(teacher.photo)} style={styles.teacherPhoto} resizeMode="cover" />
                       ) : (
                         <View style={styles.teacherPhotoPlaceholder}>
                           <GraduationCapIcon size={30} color={colors.amber} />
@@ -172,7 +197,7 @@ export default function StudentsScreen() {
               <Text style={styles.subSectionTitle}>Semua anggota kelas.</Text>
             </View>
             <Text style={styles.resultCount}>
-              <Text style={{ color: colors.foreground, fontFamily: Typography.bodyMedium }}>{filtered.length}</Text> dari {studentsData.length}
+              <Text style={{ color: colors.foreground, fontFamily: Typography.bodyMedium }}>{filtered.length}</Text> dari {studentsList.length}
             </Text>
           </View>
 
@@ -237,7 +262,7 @@ export default function StudentsScreen() {
                       <View style={styles.studentCard}>
                         <View style={styles.studentPhotoWrap}>
                           {student.photo ? (
-                            <Image source={student.photo} style={styles.studentPhoto} resizeMode="cover" />
+                            <Image source={toImageSource(student.photo)} style={styles.studentPhoto} resizeMode="cover" />
                           ) : (
                             <View style={styles.studentPhotoPlaceholder}>
                               <PersonIcon size={26} color={colors.mutedForeground} />

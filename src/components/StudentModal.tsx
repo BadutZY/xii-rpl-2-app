@@ -20,6 +20,7 @@ import Animated, {
 import { Typography, BorderRadius, Spacing, type ThemeColors } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import type { Student } from '../data/students';
+import { toImageSource } from '../lib/imageSource';
 import {
   XIcon,
   PersonIcon,
@@ -29,6 +30,7 @@ import {
   YoutubeIcon,
   GlobeIcon,
   GamepadIcon,
+  QuoteIcon,
 } from './Icons';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -130,7 +132,7 @@ export const StudentModal = ({ student, onClose }: Props) => {
             <View style={styles.photoContainer}>
               <View style={styles.photoWrap}>
                 {student.photo ? (
-                  <Image source={student.photo} style={styles.photo} resizeMode="cover" />
+                  <Image source={toImageSource(student.photo)} style={styles.photo} resizeMode="cover" />
                 ) : (
                   <View style={styles.photoPlaceholder}>
                     <PersonIcon size={48} color={colors.mutedForeground} />
@@ -146,6 +148,18 @@ export const StudentModal = ({ student, onClose }: Props) => {
                 {student.position && student.position !== '-' ? student.position : 'Anggota'}
               </Text>
             </View>
+
+            {!!(student as { bio?: string | null }).bio && (
+              <View style={styles.bioCard}>
+                <View style={styles.bioQuoteIcon}>
+                  <QuoteIcon size={13} color={colors.mutedForeground} strokeWidth={2.4} />
+                </View>
+                <Text style={styles.bioText}>
+                  {(student as { bio?: string | null }).bio}
+                </Text>
+                <Text style={styles.bioCaption}>Bio dari {student.fullName.split(' ')[0]}</Text>
+              </View>
+            )}
 
             <View style={styles.infoGrid}>
               {infoRows.map(([label, value], idx) => {
@@ -215,6 +229,44 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   scroll: { padding: Spacing.lg, alignItems: 'center' },
 
+  bioCard: {
+    width: '100%',
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm + 2,
+    paddingBottom: Spacing.sm + 4,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  bioQuoteIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface2,
+    marginBottom: 6,
+  },
+  bioText: {
+    fontFamily: Typography.body,
+    fontStyle: 'italic',
+    fontSize: 12.5,
+    lineHeight: 18.5,
+    color: colors.inkSoft,
+    textAlign: 'center',
+  },
+  bioCaption: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 9.5,
+    letterSpacing: 0.4,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    marginTop: 8,
+    textTransform: 'uppercase',
+  },
   photoContainer: { alignItems: 'center', marginBottom: Spacing.md, marginTop: Spacing.xs },
   photoWrap: {
     width: 110, height: 140,

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, Animated as RNAnimated, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Typography, type ThemeColors } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
+import { useAuth } from '../../src/context/AuthContext';
 import {
   CodeIcon,
   UsersIcon,
@@ -12,6 +13,8 @@ import {
   VideoIcon,
   SunIcon,
   MoonIcon,
+  UserCircleIcon,
+  ShieldCheckIcon,
 } from '../../src/components/Icons';
 
 interface TabIconProps {
@@ -89,9 +92,71 @@ function ThemeToggleButton() {
       activeOpacity={0.75}
     >
       {isDark
-        ? <SunIcon size={18} color={colors.foreground} />
-        : <MoonIcon size={18} color={colors.foreground} />}
+        ? <SunIcon size={17} color={colors.foreground} />
+        : <MoonIcon size={17} color={colors.foreground} />}
     </TouchableOpacity>
+  );
+}
+
+// Header button that opens Admin — shown only for admin accounts, sits
+// directly to the left of the login/profile button.
+function AdminHeaderButton() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  return (
+    <TouchableOpacity
+      onPress={() => router.push('/admin')}
+      style={styles.adminBtn}
+      hitSlop={8}
+      activeOpacity={0.75}
+    >
+      <ShieldCheckIcon size={15} color={colors.emerald} />
+    </TouchableOpacity>
+  );
+}
+
+// Rightmost header button — "Login" (long-form label) when signed out, or
+// the person's nickname/username when signed in — mirrors the login button
+// in the top-right corner of the website's Navbar.
+function LoginHeaderButton() {
+  const { colors } = useTheme();
+  const { session, profile } = useAuth();
+  const router = useRouter();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const label = session ? profile?.nickname?.trim() || profile?.username || 'Profil' : 'Login';
+
+  return (
+    <TouchableOpacity
+      onPress={() => router.push(session ? '/profile' : '/login')}
+      style={[styles.loginBtn, session && styles.loginBtnSignedIn]}
+      hitSlop={8}
+      activeOpacity={0.8}
+    >
+      <UserCircleIcon size={14} color={session ? colors.foreground : colors.primaryForeground} />
+      <Text
+        style={[styles.loginBtnLabel, session && { color: colors.foreground }]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// Groups theme toggle → admin shortcut (only for admins) → login/profile
+// button, in that left-to-right order, all inside headerRight so the login
+// button always lands in the very top-right corner of the header.
+function HeaderRightButtons() {
+  const { isAdmin } = useAuth();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <ThemeToggleButton />
+      {isAdmin && <AdminHeaderButton />}
+      <LoginHeaderButton />
+    </View>
   );
 }
 
@@ -125,7 +190,7 @@ export default function TabsLayout() {
         ],
         tabBarShowLabel: false,
         headerLeft: () => null,
-        headerRight: () => <ThemeToggleButton />,
+        headerRight: () => <HeaderRightButtons />,
         // Unmount each tab's screen when you navigate away from it, so it
         // fully remounts (fresh state + entrance animations replay) every
         // time you switch back — matching how a real page navigation
@@ -249,14 +314,47 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 1,
   },
   themeToggleBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    marginRight: 12,
+    marginRight: 8,
+  },
+  adminBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(63,125,87,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(63,125,87,0.25)',
+    marginRight: 8,
+  },
+  loginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    marginRight: 16,
+    maxWidth: 130,
+  },
+  loginBtnSignedIn: {
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  loginBtnLabel: {
+    fontFamily: Typography.bodyMedium,
+    fontSize: 12.5,
+    color: colors.primaryForeground,
+    flexShrink: 1,
   },
 });

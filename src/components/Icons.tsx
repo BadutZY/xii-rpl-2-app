@@ -389,3 +389,118 @@ export const MoonIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: Icon
     <Path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
   </Svg>
 );
+
+// ── Auth / Profile / Admin icons ──────────────────────────────────────────
+
+export const LockIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <Path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </Svg>
+);
+
+export const LogInIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+    <Polyline points="10 17 15 12 10 7" />
+    <Line x1="15" y1="12" x2="3" y2="12" />
+  </Svg>
+);
+
+export const LogOutIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <Polyline points="16 17 21 12 16 7" />
+    <Line x1="21" y1="12" x2="9" y2="12" />
+  </Svg>
+);
+
+export const ShieldCheckIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <Polyline points="9 12 11 14 15 10" />
+  </Svg>
+);
+
+export const CameraIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <Circle cx="12" cy="13" r="4" />
+  </Svg>
+);
+
+export const PencilIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
+  </Svg>
+);
+
+export const TrashIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Polyline points="3 6 5 6 21 6" />
+    <Path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <Line x1="10" y1="11" x2="10" y2="17" />
+    <Line x1="14" y1="11" x2="14" y2="17" />
+  </Svg>
+);
+
+export const PlusIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="12" y1="5" x2="12" y2="19" />
+    <Line x1="5" y1="12" x2="19" y2="12" />
+  </Svg>
+);
+
+export const KeyIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+  </Svg>
+);
+
+export const CheckIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Polyline points="20 6 9 17 4 12" />
+  </Svg>
+);
+
+export const ArrowLeftIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="19" y1="12" x2="5" y2="12" />
+    <Polyline points="12 19 5 12 12 5" />
+  </Svg>
+);
+
+export const ChevronDownIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Polyline points="6 9 12 15 18 9" />
+  </Svg>
+);
+
+export const SlidersIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="4" y1="21" x2="4" y2="14" />
+    <Line x1="4" y1="10" x2="4" y2="3" />
+    <Line x1="12" y1="21" x2="12" y2="12" />
+    <Line x1="12" y1="8" x2="12" y2="3" />
+    <Line x1="20" y1="21" x2="20" y2="16" />
+    <Line x1="20" y1="12" x2="20" y2="3" />
+    <Line x1="1" y1="14" x2="7" y2="14" />
+    <Line x1="9" y1="8" x2="15" y2="8" />
+    <Line x1="17" y1="16" x2="23" y2="16" />
+  </Svg>
+);
+
+export const QuoteIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M9.5 4.5c-3 1.4-4.5 3.8-4.5 7.2 0 2.6 1.5 4.3 3.6 4.3 1.9 0 3.2-1.4 3.2-3.2 0-1.7-1.1-2.9-2.7-2.9-.3 0-.5 0-.8.1.2-2.1 1.5-3.7 3.3-4.6L9.5 4.5z" />
+    <Path d="M19.1 4.5c-3 1.4-4.5 3.8-4.5 7.2 0 2.6 1.5 4.3 3.6 4.3 1.9 0 3.2-1.4 3.2-3.2 0-1.7-1.1-2.9-2.7-2.9-.3 0-.5 0-.8.1.2-2.1 1.5-3.7 3.3-4.6L19.1 4.5z" />
+  </Svg>
+);
+
+export const AlertTriangleIcon = ({ size = 24, color = '#ffffff', strokeWidth = 2 }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+    <Line x1="12" y1="9" x2="12" y2="13" />
+    <Line x1="12" y1="17" x2="12.01" y2="17" />
+  </Svg>
+);

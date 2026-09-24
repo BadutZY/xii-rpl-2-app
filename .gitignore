@@ -1,15 +1,120 @@
+# ── Dependencies ──────────────────────────────────────────────────────────
 node_modules/
+.pnp/
+.pnp.js
+.yarn/
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# ── Expo ──────────────────────────────────────────────────────────────────
 .expo/
+.expo-shared/
 dist/
-npm-debug.*
+web-build/
+expo-env.d.ts
+.metro-health-check*
+
+# ── Native build output (only relevant after `expo prebuild`) ─────────────
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+*.app
+lib/
+
+# ── CocoaPods (iOS) ─────────────────────────────────────────────────────────
+ios/Pods/
+
+# ── Fastlane ─────────────────────────────────────────────────────────────
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# ── Environment variables & secrets ────────────────────────────────────────
+# Keep .env.example (template) — never commit the real .env with real keys.
+.env
+.env.local
+.env.*.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+.env.test
+.env.test.local
+
+# ── Signing / credentials (never commit these) ─────────────────────────────
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-*.orig.*
-web-build/
+*.keystore
+*.pem
+google-services.json
+GoogleService-Info.plist
+credentials.json
+service-account*.json
+
+# ── Supabase local dev ──────────────────────────────────────────────────────
+supabase/.branches
+supabase/.temp
+
+# ── Logs & debug ────────────────────────────────────────────────────────────
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log*
+*.log
+logs/
+
+# ── TypeScript / build cache ────────────────────────────────────────────────
+*.tsbuildinfo
+.turbo/
+coverage/
+.cache/
+
+# ── Testing ──────────────────────────────────────────────────────────────
+.jest/
+
+# ── Metro / React Native bundler ────────────────────────────────────────────
+.metro/
+*.jsbundle
+
+# ── Watchman ─────────────────────────────────────────────────────────────
+.watchmanconfig
+
+# ── Sentry / bugsnag source maps ───────────────────────────────────────────
+sentry.properties
+*.sourcemap
+
+# ── Editor / OS junk ─────────────────────────────────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.orig.*
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# ── Package manager lock/log noise (uncomment if not using npm) ────────────
+# yarn.lock
+# pnpm-lock.yaml
+
+# ── npmrc (uncomment only if it contains secrets/tokens) ───────────────────
 .npmrc
-android
-.idea
+
+# ── EAS local build artifacts ────────────────────────────────────────────────
+.eas/
+eas-build-*.log
